@@ -73,7 +73,6 @@ export interface Payment_ {
   amount: number | null
   year: number | null
   quarter: string
-  bonusQuarter: string
   status: string
   receiptNo: string
   invoiceDate: string
