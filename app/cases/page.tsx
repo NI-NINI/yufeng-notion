@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Plus, Search, X } from 'lucide-react';
-import { Sidebar } from '../page';
+import { Sidebar } from '@/components/Sidebar';
 
 const STATUS_OPTIONS = ['全部', '待處理', '進行中', '待審核', '已完成', '暫停'];
 const TEAM_OPTIONS = ['全部', '妮組', '文組'];
