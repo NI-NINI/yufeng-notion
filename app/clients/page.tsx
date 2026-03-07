@@ -93,7 +93,7 @@ export default function ClientsPage() {
                       <td style={{ fontSize: 12 }}>
                         {c.contact1Name ? `${c.contact1Name}${c.contact1Phone ? ` / ${c.contact1Phone}` : ''}` : '—'}
                       </td>
-                      <td style={{ textAlign: 'center' }}>{c.isGiftTarget ? '🎁' : ''}</td>
+                      <td style={{ textAlign: 'center' }}>{c.isGiftTarget ? '是' : ''}</td>
                       <td style={{ fontSize: 12, color: '#888', maxWidth: 150 }}>{c.notes?.slice(0,40) || '—'}</td>
                       <td>
                         <div style={{ display: 'flex', gap: 6 }}>
@@ -163,7 +163,7 @@ export default function ClientsPage() {
                 <div>
                   <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
                     <input type="checkbox" checked={modal.isGiftTarget ?? false} onChange={e => setF('isGiftTarget', e.target.checked)} />
-                    <span className="label" style={{ marginBottom: 0 }}>年節送禮對象 🎁</span>
+                    <span className="label" style={{ marginBottom: 0 }}>年節送禮對象</span>
                   </label>
                 </div>
                 <div style={{ gridColumn: '1/-1' }}>
