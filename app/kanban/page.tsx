@@ -1,90 +1,73 @@
 'use client'
 import { useEffect, useState } from 'react'
 import Sidebar from '@/components/Sidebar'
-import type { Case_ } from '@/lib/notion'
 
-const COLUMNS = ['未啟動','進行中','等待中','擱淺','覆核中','已完成']
+const COLS = ['未啟動','進行中','擱淺','覆核中']
+const SM: Record<string,string> = { 未啟動:'i', 進行中:'a', 覆核中:'r', 擱淺:'s' }
+const PRI_CLS: Record<string,string> = { 特急:'tg-1',優先:'tg-2',普通:'tg-o',緩慢:'tg-4' }
+const PC: Record<string,string> = {
+  慈妮:'#B45309',文靜:'#065F46',紘齊:'#9F1239',韋萱:'#4338CA',
+  Jenny:'#BE185D',旭廷:'#92400E',方謙:'#1E40AF',
+}
+const uc = (n: string) => PC[n] || '#3F3F46'
+const fd = (d: string) => { if(!d) return '—'; const t=new Date(d); return `${t.getMonth()+1}/${t.getDate()}` }
+const dl = (d: string) => { if(!d) return null; return Math.ceil((new Date(d).getTime()-Date.now())/864e5) }
 
 export default function KanbanPage() {
-  const [cases, setCases] = useState<Case_[]>([])
+  const [cases, setCases] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [team, setTeam] = useState('')
 
-  const load = () => {
-    setLoading(true)
-    const p = team ? `?team=${team}` : ''
-    fetch(`/api/cases${p}`).then(r => r.json()).then(d => { setCases(d); setLoading(false) })
+  useEffect(() => {
+    fetch('/api/cases').then(r=>r.json()).then(d=>{setCases(d);setLoading(false)})
+  }, [])
+
+  const dueD = (d: string) => {
+    const x = dl(d)
+    if (x === null) return null
+    if (x < 0) return <span className="tg tg-d" style={{fontSize:10}}>逾{Math.abs(x)}天</span>
+    if (x <= 3) return <span className="tg tg-w" style={{fontSize:10}}>剩{x}天</span>
+    return <span style={{color:'var(--tx3)',fontSize:10}}>{fd(d)}</span>
   }
-  useEffect(load, [team])
 
-  const updateStatus = async (id: string, status: string) => {
-    await fetch(`/api/cases/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status }) })
-    load()
-  }
-
-  const priorityColor: Record<string, string> = { 特急: '#dc2626', 優先: '#f59e0b', 普通: '#6b7280', 緩慢: '#d1d5db' }
+  const active = cases.filter(c => c.status !== '已完成')
 
   return (
-    <div style={{ display: 'flex' }}>
+    <div className="app">
       <Sidebar />
-      <main className="main-content">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-          <h1 style={{ fontSize: 22, fontWeight: 700 }}>看板</h1>
-          <select className="select" style={{ width: 120 }} value={team} onChange={e => setTeam(e.target.value)}>
-            <option value="">全部組別</option>
-            <option>妮組</option>
-            <option>文組</option>
-          </select>
-        </div>
-
-        {loading ? <div style={{ color: '#888' }}>載入中…</div> : (
-          <div style={{ display: 'grid', gridTemplateColumns: `repeat(${COLUMNS.length}, minmax(220px,1fr))`, gap: 12, overflowX: 'auto' }}>
-            {COLUMNS.map(col => {
-              const colCases = cases.filter(c => c.status === col)
-              return (
-                <div key={col}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                    <span className={`badge status-${col}`} style={{ fontSize: 12 }}>{col}</span>
-                    <span style={{ fontSize: 12, color: '#888' }}>{colCases.length}</span>
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    {colCases.sort((a,b) => {
-                      const po = ['特急','優先','普通','緩慢']
-                      return po.indexOf(a.priority) - po.indexOf(b.priority)
-                    }).map(c => (
-                      <div key={c.id} style={{ background: '#fff', border: '1px solid #e8e6e0', borderRadius: 10, padding: 12, fontSize: 12 }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
-                          <span style={{ fontWeight: 600, fontSize: 13, lineHeight: 1.3 }}>{c.name}</span>
-                          <span style={{ width: 8, height: 8, borderRadius: '50%', background: priorityColor[c.priority] ?? '#ccc', flexShrink: 0, marginTop: 4 }} />
-                        </div>
-                        {c.clientName && <div style={{ color: '#888', marginBottom: 4 }}>{c.clientName}</div>}
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span style={{ color: '#666' }}>{c.assignees.join('/')}</span>
-                          <span style={{ color: c.dueDate ? '#555' : '#ccc' }}>{c.dueDate || '無期限'}</span>
-                        </div>
-                        {c.progressNote && (
-                          <div style={{ marginTop: 6, padding: '4px 8px', background: '#f9f8f5', borderRadius: 6, color: '#555', fontSize: 11 }}>
-                            {c.progressNote.slice(0,50)}{c.progressNote.length > 50 ? '…' : ''}
+      <div className="main-content">
+        <div className="page-hd"><h1>看板</h1></div>
+        <div className="page-ct">
+          {loading ? <div style={{padding:48,textAlign:'center',color:'var(--tx3)'}}>載入中…</div> : (
+            <div className="kb">
+              {COLS.map(col => {
+                const items = active.filter(c => c.status === col)
+                return (
+                  <div key={col} className="kb-col">
+                    <div className="kb-col-hd">
+                      <span className={`st st-${SM[col]}`} />
+                      {col} <span className="cnt">{items.length}</span>
+                    </div>
+                    <div className="kb-col-body">
+                      {items.map(c => (
+                        <div key={c.id} className="kb-card">
+                          <div className="kb-card-title">{c.name}</div>
+                          <div className="kb-card-meta">
+                            <span className={`tg ${PRI_CLS[c.priority]||'tg-o'}`}>{c.priority}</span>
+                            {(c.assignees||[]).slice(0,2).map((a: string) => (
+                              <span key={a} className="pn"><span className="pn-a" style={{background:uc(a)}}>{a[0]}</span>{a}</span>
+                            ))}
+                            {dueD(c.dueDate||'')}
                           </div>
-                        )}
-                        {/* 快速狀態切換 */}
-                        <div style={{ marginTop: 8, display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                          {COLUMNS.filter(s => s !== col).map(s => (
-                            <button key={s} onClick={() => updateStatus(c.id, s)}
-                              style={{ fontSize: 10, padding: '2px 6px', border: '1px solid #e0e0e0', borderRadius: 4, background: '#f9f9f9', cursor: 'pointer', color: '#666' }}>
-                              → {s}
-                            </button>
-                          ))}
                         </div>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )
-            })}
-          </div>
-        )}
-      </main>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   )
 }

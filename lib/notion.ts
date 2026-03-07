@@ -55,6 +55,7 @@ export interface Case_ {
   progressNote: string
   qualityScore: number | null
   quarter: string
+  bonusQuarter: string
   year: string
   bonus25: number | null
   bonus15: number | null
@@ -72,6 +73,7 @@ export interface Payment_ {
   amount: number | null
   year: number | null
   quarter: string
+  bonusQuarter: string
   status: string
   receiptNo: string
   invoiceDate: string
@@ -184,6 +186,7 @@ export function toCase(page: any, clientMap: Record<string, string> = {}): Case_
     progressNote: text(page, '進度備註'),
     qualityScore: num(page, '品質分數'),
     quarter: formula_(page, '季度') ?? '',
+    bonusQuarter: formula_(page, '季度') ?? '',
     year: formula_(page, '年度') ?? '',
     bonus25: formula_(page, '個人獎金_2.5%'),
     bonus15: formula_(page, '組控獎金_1.5%'),
