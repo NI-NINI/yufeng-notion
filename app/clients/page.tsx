@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { Plus, X, Phone, Mail, MapPin } from 'lucide-react';
-import { Sidebar } from '../page';
+import { Sidebar } from '@/components/Sidebar';
 
 export default function ClientsPage() {
   const [clients, setClients] = useState<any[]>([]);
