@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Sidebar from '@/components/Sidebar'
 
@@ -62,6 +62,14 @@ interface Case_ {
 }
 
 export default function CasesPage() {
+  return (
+    <Suspense fallback={<div style={{display:'flex'}}><Sidebar /><main className="main-content" style={{padding:40,color:'#888'}}>載入中…</main></div>}>
+      <CasesInner />
+    </Suspense>
+  )
+}
+
+function CasesInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const highlightId = searchParams.get('highlight')
@@ -445,4 +453,5 @@ export default function CasesPage() {
       </div>
     </div>
   )
+}
 }
