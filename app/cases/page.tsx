@@ -1,5 +1,6 @@
 'use client'
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Sidebar from '@/components/Sidebar'
 
 const TYPES = ['都更前期','都更','法拍','一般件','權利變換','容積代金','危老','國產署','公允價值評估','捷運聯開','地上權','合理市場租金','瑕疵','其他']
@@ -56,9 +57,14 @@ interface Case_ {
   qualityScore?: number | null
   bonusQuarter?: string
   isLeading?: boolean
+  redFlag?: boolean
+  redFlagNote?: string
 }
 
 export default function CasesPage() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const highlightId = searchParams.get('highlight')
   const [cases, setCases] = useState<Case_[]>([])
   const [loading, setLoading] = useState(true)
   const [view, setView] = useState<'table'|'twoweek'>('table')
@@ -77,7 +83,15 @@ export default function CasesPage() {
 
   const load = () => {
     setLoading(true)
-    fetch('/api/cases').then(r => r.json()).then(d => { setCases(d); setLoading(false) }).catch(() => setLoading(false))
+    fetch('/api/cases').then(r => r.json()).then(d => {
+      setCases(d)
+      setLoading(false)
+      // 若有 highlight 參數，等資料載入後自動展開該案件
+      if (highlightId) {
+        const found = d.find((c: Case_) => c.id === highlightId)
+        if (found) openDet(found)
+      }
+    }).catch(() => setLoading(false))
   }
   useEffect(load, [])
 
@@ -229,6 +243,7 @@ export default function CasesPage() {
             <span>進行中 <b>{filtered.filter(c=>c.status==='進行中').length}</b></span>
             <span>擱淺 <b style={{color:'var(--warn)'}}>{filtered.filter(c=>c.status==='擱淺').length}</b></span>
             <span>覆核 <b>{filtered.filter(c=>c.status==='覆核中').length}</b></span>
+            {filtered.filter(c=>c.redFlag).length > 0 && <span style={{color:'#dc2626'}}>🔴 紅燈 <b>{filtered.filter(c=>c.redFlag).length}</b></span>}
             {active.some(c=>c.contractAmount) && <span style={{marginLeft:'auto'}}>簽約總額 <b>${fmt(active.reduce((s,c)=>s+(c.contractAmount||0),0))}</b></span>}
           </div>
         )}
@@ -254,8 +269,11 @@ export default function CasesPage() {
               </tr></thead>
               <tbody>
                 {filtered.map(c => (
-                  <tr key={c.id} onClick={()=>openDet(c)}>
-                    <td style={{color:'var(--tx3)',fontFamily:'var(--m)',fontSize:11}}>{c.caseNumber||'—'}</td>
+                  <tr key={c.id} onClick={()=>openDet(c)} style={{ background: c.redFlag ? '#fff5f5' : undefined }}>
+                    <td style={{color:'var(--tx3)',fontFamily:'var(--m)',fontSize:11}}>
+                      {c.redFlag && <span style={{color:'#dc2626',marginRight:4}} title={c.redFlagNote||'業務紅燈'}>🔴</span>}
+                      {c.caseNumber||'—'}
+                    </td>
                     <td><span className={`tg ${TY_CLS[c.caseType||'']||'tg-o'}`}>{c.caseType||'—'}</span></td>
                     <td style={{fontWeight:500,maxWidth:180}}>{c.name}</td>
                     <td><span className="tg tg-o">{c.team}</span></td>
@@ -308,7 +326,10 @@ export default function CasesPage() {
                 </div>)}
                 {pr('狀態', <select style={{border:'1px solid var(--bd)',borderRadius:'var(--rs)',padding:'4px 8px',fontSize:13,outline:'none',fontFamily:'var(--f)',background:'var(--bgc)'}} value={detEdited.status||''} onChange={e=>setDE('status',e.target.value)}>{STATUSES.map(s=><option key={s}>{s}</option>)}</select>)}
                 {pr('順位', <select style={{border:'1px solid var(--bd)',borderRadius:'var(--rs)',padding:'4px 8px',fontSize:13,outline:'none',fontFamily:'var(--f)',background:'var(--bgc)'}} value={detEdited.priority||''} onChange={e=>setDE('priority',e.target.value)}>{PRIORITIES.map(p=><option key={p}>{p}</option>)}</select>)}
-                {pr('委託', <input className="fi-inline" value={detEdited.clientName||''} onChange={e=>setDE('clientName',e.target.value)} />)}
+                {pr('委託', <div style={{display:'flex',alignItems:'center',gap:8}}>
+                  <input className="fi-inline" value={detEdited.clientName||''} onChange={e=>setDE('clientName',e.target.value)} />
+                  {det.clientId && <button className="btn btn-ghost" style={{fontSize:11,padding:'2px 8px'}} onClick={()=>router.push(`/clients?highlight=${det.clientId}`)}>→ 客戶頁</button>}
+                </div>)}
                 {pr('派件日', <input type="date" className="fi-inline" value={detEdited.assignDate||''} onChange={e=>setDE('assignDate',e.target.value)} />)}
                 {pr('交件日', <div style={{display:'flex',alignItems:'center',gap:8}}>
                   <input type="date" style={{border:'1px solid var(--bd)',borderRadius:'var(--rs)',padding:'4px 8px',fontSize:13,fontFamily:'var(--f)',outline:'none'}} value={detEdited.dueDate||''} onChange={e=>setDE('dueDate',e.target.value)} />
@@ -328,6 +349,19 @@ export default function CasesPage() {
                   <option value="">— 未指定</option>
                   {['Q1','Q2','Q3','Q4'].map(q=><option key={q}>{q}</option>)}
                 </select>)}
+              </div>
+
+              {/* 業務紅燈 */}
+              <div className="dp-sec" style={{background: detEdited.redFlag ? '#fff5f5' : undefined, borderRadius: 8, padding: detEdited.redFlag ? '12px' : '0'}}>
+                <div style={{display:'flex',alignItems:'center',gap:10,marginBottom: detEdited.redFlag ? 8 : 0}}>
+                  <label style={{display:'flex',alignItems:'center',gap:6,cursor:'pointer',fontWeight:600,fontSize:13}}>
+                    <input type="checkbox" checked={!!detEdited.redFlag} onChange={e=>setDE('redFlag',e.target.checked)} />
+                    🔴 業務紅燈（提醒承辦）
+                  </label>
+                </div>
+                {detEdited.redFlag && (
+                  <input className="fi-inline" style={{width:'100%'}} placeholder="紅燈原因，例如：初建期限 3/15 前需送件" value={detEdited.redFlagNote||''} onChange={e=>setDE('redFlagNote',e.target.value)} />
+                )}
               </div>
 
               {/* 獎金明細 */}

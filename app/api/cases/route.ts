@@ -8,10 +8,13 @@ export async function GET(req: NextRequest) {
     const status = searchParams.get('status')
     const assignee = searchParams.get('assignee')
 
+    const clientId = searchParams.get('clientId')
+
     const filters: any[] = []
     if (team) filters.push({ property: '負責組別', select: { equals: team } })
     if (status) filters.push({ property: '案件狀態', select: { equals: status } })
     if (assignee) filters.push({ property: '承辦人', multi_select: { contains: assignee } })
+    if (clientId) filters.push({ property: '委託單位', relation: { contains: clientId } })
 
     const cases = await fetchAllCases(
       filters.length > 0 ? { filter: filters.length === 1 ? filters[0] : { and: filters } } : undefined

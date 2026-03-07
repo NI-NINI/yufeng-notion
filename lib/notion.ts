@@ -5,12 +5,13 @@ export const notion = new Client({
 })
 
 export const DB_IDS = {
-  clients:  process.env.NOTION_CLIENT_DB_ID!,   // 📁 客戶資料庫
-  cases:    process.env.NOTION_CASE_DB_ID!,     // 📋 案件資料庫
-  payments: process.env.NOTION_PAYMENT_DB_ID!,  // 💰 付款分期資料庫
+  clients:  process.env.NOTION_CLIENT_DB_ID!,
+  cases:    process.env.NOTION_CASE_DB_ID!,
+  payments: process.env.NOTION_PAYMENT_DB_ID!,
 }
 
 // ── 型別定義 ──────────────────────────────────────────────────
+
 export interface Client_ {
   id: string
   name: string
@@ -24,7 +25,12 @@ export interface Client_ {
   contact2Name: string
   contact2Phone: string
   contact2Email: string
-  isGiftTarget: boolean
+  // 四節送禮（對應 Notion 四個 checkbox 欄位）
+  giftDragonBoat: boolean
+  giftMidAutumn: boolean
+  giftNewYear: boolean
+  giftYearEnd: boolean
+  isGiftTarget: boolean   // 向後相容，只要任一節有勾就為 true
   clientType: string
   notes: string
   createdAt: string
@@ -61,6 +67,8 @@ export interface Case_ {
   bonus15: number | null
   bonus3: number | null
   difficultyWeight: number | null
+  redFlag: boolean
+  redFlagNote: string
   updatedAt: string
 }
 
@@ -69,6 +77,9 @@ export interface Payment_ {
   title: string
   caseId: string
   caseName: string
+  caseTeam: string
+  caseAssignees: string[]
+  caseContractAmount: number | null
   period: string
   amount: number | null
   year: number | null
@@ -82,9 +93,7 @@ export interface Payment_ {
 
 // ── helpers ────────────────────────────────────────────────────
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function prop(page: any, key: string) {
-  return page.properties?.[key]
-}
+function prop(page: any, key: string) { return page.properties?.[key] }
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function text(page: any, key: string): string {
   const p = prop(page, key)
@@ -93,29 +102,18 @@ function text(page: any, key: string): string {
   if (p.type === 'rich_text') return p.rich_text?.map((t: any) => t.plain_text).join('') ?? ''
   if (p.type === 'phone_number') return p.phone_number ?? ''
   if (p.type === 'email') return p.email ?? ''
-  if (p.type === 'url') return p.url ?? ''
   return ''
 }
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function select_(page: any, key: string): string {
-  return prop(page, key)?.select?.name ?? ''
-}
+function select_(page: any, key: string): string { return prop(page, key)?.select?.name ?? '' }
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function multiSelect(page: any, key: string): string[] {
-  return prop(page, key)?.multi_select?.map((o: any) => o.name) ?? []
-}
+function multiSelect(page: any, key: string): string[] { return prop(page, key)?.multi_select?.map((o: any) => o.name) ?? [] }
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function num(page: any, key: string): number | null {
-  return prop(page, key)?.number ?? null
-}
+function num(page: any, key: string): number | null { return prop(page, key)?.number ?? null }
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function date_(page: any, key: string): string {
-  return prop(page, key)?.date?.start ?? ''
-}
+function date_(page: any, key: string): string { return prop(page, key)?.date?.start ?? '' }
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function checkbox_(page: any, key: string): boolean {
-  return prop(page, key)?.checkbox ?? false
-}
+function checkbox_(page: any, key: string): boolean { return prop(page, key)?.checkbox ?? false }
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function formula_(page: any, key: string): any {
   const f = prop(page, key)?.formula
@@ -125,17 +123,17 @@ function formula_(page: any, key: string): any {
   return null
 }
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function relation_(page: any, key: string): string[] {
-  return prop(page, key)?.relation?.map((r: any) => r.id) ?? []
-}
+function relation_(page: any, key: string): string[] { return prop(page, key)?.relation?.map((r: any) => r.id) ?? [] }
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function uniqueId_(page: any, key: string): number | null {
-  return prop(page, key)?.unique_id?.number ?? null
-}
+function uniqueId_(page: any, key: string): number | null { return prop(page, key)?.unique_id?.number ?? null }
 
 // ── 資料轉換 ───────────────────────────────────────────────────
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function toClient(page: any): Client_ {
+  const giftDragonBoat = checkbox_(page, '端午送禮')
+  const giftMidAutumn  = checkbox_(page, '中秋送禮')
+  const giftNewYear    = checkbox_(page, '春節送禮')
+  const giftYearEnd    = checkbox_(page, '年節送禮')
   return {
     id: page.id,
     name: text(page, '委託單位名稱'),
@@ -149,7 +147,11 @@ export function toClient(page: any): Client_ {
     contact2Name: text(page, '聯絡窗口2_姓名'),
     contact2Phone: text(page, '聯絡窗口2_電話'),
     contact2Email: text(page, '聯絡窗口2_Email'),
-    isGiftTarget: checkbox_(page, '送禮對象'),
+    giftDragonBoat,
+    giftMidAutumn,
+    giftNewYear,
+    giftYearEnd,
+    isGiftTarget: checkbox_(page, '送禮對象') || giftDragonBoat || giftMidAutumn || giftNewYear || giftYearEnd,
     clientType: select_(page, '客戶類型'),
     notes: text(page, '備註'),
     createdAt: prop(page, '建立日期')?.created_time ?? '',
@@ -191,19 +193,25 @@ export function toCase(page: any, clientMap: Record<string, string> = {}): Case_
     bonus15: formula_(page, '組控獎金_1.5%'),
     bonus3: formula_(page, '團獎_3%'),
     difficultyWeight: formula_(page, '難度權重'),
+    redFlag: checkbox_(page, '業務紅燈'),
+    redFlagNote: text(page, '紅燈備註'),
     updatedAt: prop(page, '最後更新')?.last_edited_time ?? '',
   }
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function toPayment(page: any, caseMap: Record<string, string> = {}): Payment_ {
+export function toPayment(page: any, caseMap: Record<string, string> = {}, caseDetailMap: Record<string, Case_> = {}): Payment_ {
   const caseIds = relation_(page, '案件')
   const caseId = caseIds[0] ?? ''
+  const cd = caseDetailMap[caseId]
   return {
     id: page.id,
     title: text(page, '收款項目'),
     caseId,
     caseName: caseMap[caseId] ?? '',
+    caseTeam: cd?.team ?? '',
+    caseAssignees: cd?.assignees ?? [],
+    caseContractAmount: cd?.contractAmount ?? null,
     period: select_(page, '期別'),
     amount: num(page, '應收金額'),
     year: num(page, '請款年度'),
@@ -216,15 +224,13 @@ export function toPayment(page: any, caseMap: Record<string, string> = {}): Paym
   }
 }
 
-// ── 查詢函式 ───────────────────────────────────────────────────
+// ── 查詢 ───────────────────────────────────────────────────────
 export async function fetchAllClients(): Promise<Client_[]> {
   const pages: any[] = []
   let cursor: string | undefined
   do {
     const res = await notion.databases.query({
-      database_id: DB_IDS.clients,
-      start_cursor: cursor,
-      page_size: 100,
+      database_id: DB_IDS.clients, start_cursor: cursor, page_size: 100,
       sorts: [{ property: '委託單位名稱', direction: 'ascending' }],
     })
     pages.push(...res.results)
@@ -234,18 +240,14 @@ export async function fetchAllClients(): Promise<Client_[]> {
 }
 
 export async function fetchAllCases(filters?: object): Promise<Case_[]> {
-  // 先取客戶名稱 map
   const clients = await fetchAllClients()
   const clientMap: Record<string, string> = {}
   clients.forEach(c => { clientMap[c.id] = c.name })
-
   const pages: any[] = []
   let cursor: string | undefined
   do {
     const res = await notion.databases.query({
-      database_id: DB_IDS.cases,
-      start_cursor: cursor,
-      page_size: 100,
+      database_id: DB_IDS.cases, start_cursor: cursor, page_size: 100,
       sorts: [{ property: '預計交件日', direction: 'ascending' }],
       ...(filters ?? {}),
     })
@@ -256,19 +258,19 @@ export async function fetchAllCases(filters?: object): Promise<Case_[]> {
 }
 
 export async function fetchAllPayments(): Promise<Payment_[]> {
-  // 先取案件名稱 map
   const casePages: any[] = []
   let cursor: string | undefined
   do {
-    const res = await notion.databases.query({
-      database_id: DB_IDS.cases, start_cursor: cursor, page_size: 100,
-    })
+    const res = await notion.databases.query({ database_id: DB_IDS.cases, start_cursor: cursor, page_size: 100 })
     casePages.push(...res.results)
     cursor = res.has_more ? (res.next_cursor ?? undefined) : undefined
   } while (cursor)
   const caseMap: Record<string, string> = {}
-  casePages.forEach(p => { caseMap[p.id] = text(p, '案件名稱') })
-
+  const caseDetailMap: Record<string, Case_> = {}
+  casePages.forEach(p => {
+    caseMap[p.id] = text(p, '案件名稱')
+    caseDetailMap[p.id] = toCase(p)
+  })
   const pages: any[] = []
   cursor = undefined
   do {
@@ -279,13 +281,13 @@ export async function fetchAllPayments(): Promise<Payment_[]> {
     pages.push(...res.results)
     cursor = res.has_more ? (res.next_cursor ?? undefined) : undefined
   } while (cursor)
-  return pages.map(p => toPayment(p, caseMap))
+  return pages.map(p => toPayment(p, caseMap, caseDetailMap))
 }
 
-// ── 文字輔助 ───────────────────────────────────────────────────
+// ── helpers ────────────────────────────────────────────────────
 function richText(s: string) { return [{ text: { content: s } }] }
 
-// ── 建立/更新 Client ───────────────────────────────────────────
+// ── CRUD Client ────────────────────────────────────────────────
 export async function createClient(data: Partial<Client_>) {
   return notion.pages.create({
     parent: { database_id: DB_IDS.clients },
@@ -301,7 +303,10 @@ export async function createClient(data: Partial<Client_>) {
       '聯絡窗口2_姓名': { rich_text: richText(data.contact2Name ?? '') },
       '聯絡窗口2_電話': { phone_number: data.contact2Phone ?? null },
       '聯絡窗口2_Email': { email: data.contact2Email ?? null },
-      '送禮對象': { checkbox: data.isGiftTarget ?? false },
+      '端午送禮': { checkbox: data.giftDragonBoat ?? false },
+      '中秋送禮': { checkbox: data.giftMidAutumn ?? false },
+      '春節送禮': { checkbox: data.giftNewYear ?? false },
+      '年節送禮': { checkbox: data.giftYearEnd ?? false },
       '客戶類型': data.clientType ? { select: { name: data.clientType } } : { select: null },
       '備註': { rich_text: richText(data.notes ?? '') },
     },
@@ -321,17 +326,18 @@ export async function updateClient(id: string, data: Partial<Client_>) {
   if (data.contact2Name !== undefined) props['聯絡窗口2_姓名'] = { rich_text: richText(data.contact2Name) }
   if (data.contact2Phone !== undefined) props['聯絡窗口2_電話'] = { phone_number: data.contact2Phone || null }
   if (data.contact2Email !== undefined) props['聯絡窗口2_Email'] = { email: data.contact2Email || null }
-  if (data.isGiftTarget !== undefined) props['送禮對象'] = { checkbox: data.isGiftTarget }
+  if (data.giftDragonBoat !== undefined) props['端午送禮'] = { checkbox: data.giftDragonBoat }
+  if (data.giftMidAutumn !== undefined) props['中秋送禮'] = { checkbox: data.giftMidAutumn }
+  if (data.giftNewYear !== undefined) props['春節送禮'] = { checkbox: data.giftNewYear }
+  if (data.giftYearEnd !== undefined) props['年節送禮'] = { checkbox: data.giftYearEnd }
   if (data.clientType !== undefined) props['客戶類型'] = { select: data.clientType ? { name: data.clientType } : null }
   if (data.notes !== undefined) props['備註'] = { rich_text: richText(data.notes) }
   return notion.pages.update({ page_id: id, properties: props })
 }
 
-// ── 建立/更新 Case ─────────────────────────────────────────────
+// ── CRUD Case ──────────────────────────────────────────────────
 export async function createCase(data: Partial<Case_>) {
-  const props: any = {
-    '案件名稱': { title: richText(data.name ?? '') },
-  }
+  const props: any = { '案件名稱': { title: richText(data.name ?? '') } }
   if (data.clientId) props['委託單位'] = { relation: [{ id: data.clientId }] }
   if (data.caseType) props['案件類型'] = { select: { name: data.caseType } }
   if (data.address) props['標的地址'] = { rich_text: richText(data.address) }
@@ -351,6 +357,8 @@ export async function createCase(data: Partial<Case_>) {
   if (data.stuckReason) props['擱淺原因'] = { rich_text: richText(data.stuckReason) }
   if (data.progressNote) props['進度備註'] = { rich_text: richText(data.progressNote) }
   if (data.qualityScore !== undefined) props['品質分數'] = { number: data.qualityScore }
+  if (data.redFlag !== undefined) props['業務紅燈'] = { checkbox: data.redFlag }
+  if (data.redFlagNote !== undefined) props['紅燈備註'] = { rich_text: richText(data.redFlagNote) }
   return notion.pages.create({ parent: { database_id: DB_IDS.cases }, properties: props })
 }
 
@@ -376,14 +384,14 @@ export async function updateCase(id: string, data: Partial<Case_>) {
   if (data.stuckReason !== undefined) props['擱淺原因'] = { rich_text: richText(data.stuckReason) }
   if (data.progressNote !== undefined) props['進度備註'] = { rich_text: richText(data.progressNote) }
   if (data.qualityScore !== undefined) props['品質分數'] = { number: data.qualityScore }
+  if (data.redFlag !== undefined) props['業務紅燈'] = { checkbox: data.redFlag }
+  if (data.redFlagNote !== undefined) props['紅燈備註'] = { rich_text: richText(data.redFlagNote) }
   return notion.pages.update({ page_id: id, properties: props })
 }
 
-// ── 建立/更新 Payment ──────────────────────────────────────────
+// ── CRUD Payment ───────────────────────────────────────────────
 export async function createPayment(data: Partial<Payment_>) {
-  const props: any = {
-    '收款項目': { title: richText(data.title ?? '') },
-  }
+  const props: any = { '收款項目': { title: richText(data.title ?? '') } }
   if (data.caseId) props['案件'] = { relation: [{ id: data.caseId }] }
   if (data.period) props['期別'] = { select: { name: data.period } }
   if (data.amount !== undefined) props['應收金額'] = { number: data.amount }
