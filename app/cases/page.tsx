@@ -333,6 +333,20 @@ function CasesInner() {
                   </select>
                 </div>
 
+                <div className="dp-gl">簽證估價師</div>
+                <div style={{display:'flex',gap:4,flexWrap:'wrap',alignItems:'center'}}>
+                  {(sel.appraisers||[]).map((a:string)=>(
+                    <span key={a} className="tg tg-blue" style={{cursor:'pointer'}} onClick={()=>setSel((p:any)=>({...p,appraisers:(p.appraisers||[]).filter((x:string)=>x!==a)}))}>
+                      {a} ✕
+                    </span>
+                  ))}
+                  <select className="fi" style={{width:80,padding:'2px 5px',fontSize:11}} value=""
+                    onChange={e=>{if(e.target.value)setSel((p:any)=>{ const prev:string[]=p.appraisers||[]; return {...p,appraisers:prev.includes(e.target.value)?prev:[...prev,e.target.value]} })}}>
+                    <option value="">+</option>
+                    {APPRAISERS.filter((a:string)=>!(sel.appraisers||[]).includes(a)).map((a:string)=><option key={a}>{a}</option>)}
+                  </select>
+                </div>
+
                 <div className="dp-gl">狀態</div>
                 <select className="fi" value={sel.status||''} onChange={e=>setSel((p:any)=>({...p,status:e.target.value}))}>
                   {STATUSES.map(s=><option key={s}>{s}</option>)}

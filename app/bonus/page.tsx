@@ -25,6 +25,8 @@ export default function BonusPage() {
   // pool allocation per team
   const [niAlloc, setNiAlloc] = useState<Record<string,number>>({慈妮:40,紘齊:35,韋萱:25})
   const [wenAlloc, setWenAlloc] = useState<Record<string,number>>({文靜:25,Jenny:25,旭庭:25,方謙:25})
+  const [niConfirmed, setNiConfirmed] = useState(false)
+  const [wenConfirmed, setWenConfirmed] = useState(false)
   const chartsRef = useRef<Record<string,any>>({})
 
   useEffect(() => {
@@ -310,8 +312,30 @@ export default function BonusPage() {
                       <span style={{fontSize:11,color:allocStatusClass(niSum(niAlloc)),fontWeight:600}}>
                         {allocStatusText(niSum(niAlloc))}
                       </span>
-                      <button className="btn btn-primary btn-sm" disabled={niSum(niAlloc)!==100}>確認配發</button>
+                      <button className="btn btn-primary btn-sm" disabled={niSum(niAlloc)!==100}
+                        onClick={()=>setNiConfirmed(true)}>確認配發</button>
                     </div>
+                    {niConfirmed && (
+                      <div style={{borderTop:'1px solid var(--bdl)',padding:'10px 12px',background:'var(--sage-l)'}}>
+                        <div style={{fontSize:10,fontWeight:700,color:'var(--sage)',textTransform:'uppercase',letterSpacing:'.04em',marginBottom:8}}>配發結果（含團獎）</div>
+                        {['慈妮','紘齊','韋萱'].map(m=>(
+                          <div key={m} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'5px 0',borderBottom:'1px solid rgba(122,155,135,.2)'}}>
+                            <div style={{display:'flex',alignItems:'center',gap:6}}>
+                              <div className="av" style={{background:PC[m],width:20,height:20,fontSize:9}}>{m[0]}</div>
+                              <span style={{fontSize:12,fontWeight:600}}>{m}</span>
+                            </div>
+                            <div style={{textAlign:'right'}}>
+                              <div style={{fontFamily:'var(--m)',fontSize:13,fontWeight:700,color:'var(--sage)'}}>
+                                {fmt((personalBonus[m]?.total||0) + niPool*(niAlloc[m]||0)/100)}
+                              </div>
+                              <div style={{fontSize:10,color:'var(--tx3)'}}>
+                                作業 {fmt(personalBonus[m]?.total||0)} ＋ 團獎 {fmt(niPool*(niAlloc[m]||0)/100)}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                   {/* 文組 */}
                   <div className="pool-panel">
@@ -337,8 +361,30 @@ export default function BonusPage() {
                       <span style={{fontSize:11,color:allocStatusClass(wenSum(wenAlloc)),fontWeight:600}}>
                         {allocStatusText(wenSum(wenAlloc))}
                       </span>
-                      <button className="btn btn-primary btn-sm" disabled={wenSum(wenAlloc)!==100}>確認配發</button>
+                      <button className="btn btn-primary btn-sm" disabled={wenSum(wenAlloc)!==100}
+                        onClick={()=>setWenConfirmed(true)}>確認配發</button>
                     </div>
+                    {wenConfirmed && (
+                      <div style={{borderTop:'1px solid var(--bdl)',padding:'10px 12px',background:'var(--sage-l)'}}>
+                        <div style={{fontSize:10,fontWeight:700,color:'var(--sage)',textTransform:'uppercase',letterSpacing:'.04em',marginBottom:8}}>配發結果（含團獎）</div>
+                        {['文靜','Jenny','旭庭','方謙'].map(m=>(
+                          <div key={m} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'5px 0',borderBottom:'1px solid rgba(122,155,135,.2)'}}>
+                            <div style={{display:'flex',alignItems:'center',gap:6}}>
+                              <div className="av" style={{background:PC[m]||'#6B6760',width:20,height:20,fontSize:9}}>{m[0]}</div>
+                              <span style={{fontSize:12,fontWeight:600}}>{m}</span>
+                            </div>
+                            <div style={{textAlign:'right'}}>
+                              <div style={{fontFamily:'var(--m)',fontSize:13,fontWeight:700,color:'var(--sage)'}}>
+                                {fmt((personalBonus[m]?.total||0) + wenPool*(wenAlloc[m]||0)/100)}
+                              </div>
+                              <div style={{fontSize:10,color:'var(--tx3)'}}>
+                                作業 {fmt(personalBonus[m]?.total||0)} ＋ 團獎 {fmt(wenPool*(wenAlloc[m]||0)/100)}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

@@ -289,42 +289,42 @@ function richText(s: string) { return [{ text: { content: s } }] }
 
 // ── CRUD Client ────────────────────────────────────────────────
 export async function createClient(data: Partial<Client_>) {
-  return notion.pages.create({
-    parent: { database_id: DB_IDS.clients },
-    properties: {
-      '委託單位名稱': { title: richText(data.name ?? '') },
-      '統一編號': { rich_text: richText(data.taxId ?? '') },
-      '公司電話': { phone_number: data.phone ?? null },
-      '傳真': { phone_number: data.fax ?? null },
-      '公司地址': { rich_text: richText(data.address ?? '') },
-      '聯絡窗口1_姓名': { rich_text: richText(data.contact1Name ?? '') },
-      '聯絡窗口1_電話': { phone_number: data.contact1Phone ?? null },
-      '聯絡窗口1_Email': { email: data.contact1Email ?? null },
-      '聯絡窗口2_姓名': { rich_text: richText(data.contact2Name ?? '') },
-      '聯絡窗口2_電話': { phone_number: data.contact2Phone ?? null },
-      '聯絡窗口2_Email': { email: data.contact2Email ?? null },
-      '端午送禮': { checkbox: data.giftDragonBoat ?? false },
-      '中秋送禮': { checkbox: data.giftMidAutumn ?? false },
-      '春節送禮': { checkbox: data.giftNewYear ?? false },
-      '年節送禮': { checkbox: data.giftYearEnd ?? false },
-      '客戶類型': data.clientType ? { select: { name: data.clientType } } : { select: null },
-      '備註': { rich_text: richText(data.notes ?? '') },
-    },
-  })
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const props: any = {
+    '委託單位名稱': { title: richText(data.name ?? '') },
+    '統一編號': { rich_text: richText(data.taxId ?? '') },
+    '公司地址': { rich_text: richText(data.address ?? '') },
+    '聯絡窗口1_姓名': { rich_text: richText(data.contact1Name ?? '') },
+    '聯絡窗口2_姓名': { rich_text: richText(data.contact2Name ?? '') },
+    '端午送禮': { checkbox: data.giftDragonBoat ?? false },
+    '中秋送禮': { checkbox: data.giftMidAutumn ?? false },
+    '春節送禮': { checkbox: data.giftNewYear ?? false },
+    '年節送禮': { checkbox: data.giftYearEnd ?? false },
+    '備註': { rich_text: richText(data.notes ?? '') },
+  }
+  // phone/email: Notion API rejects null values for these types, only set when non-empty
+  if (data.phone)         props['公司電話'] = { phone_number: data.phone }
+  if (data.fax)           props['傳真'] = { phone_number: data.fax }
+  if (data.contact1Phone) props['聯絡窗口1_電話'] = { phone_number: data.contact1Phone }
+  if (data.contact1Email) props['聯絡窗口1_Email'] = { email: data.contact1Email }
+  if (data.contact2Phone) props['聯絡窗口2_電話'] = { phone_number: data.contact2Phone }
+  if (data.contact2Email) props['聯絡窗口2_Email'] = { email: data.contact2Email }
+  if (data.clientType)    props['客戶類型'] = { select: { name: data.clientType } }
+  return notion.pages.create({ parent: { database_id: DB_IDS.clients }, properties: props })
 }
 
 export async function updateClient(id: string, data: Partial<Client_>) {
   const props: any = {}
   if (data.name !== undefined) props['委託單位名稱'] = { title: richText(data.name) }
   if (data.taxId !== undefined) props['統一編號'] = { rich_text: richText(data.taxId) }
-  if (data.phone !== undefined) props['公司電話'] = { phone_number: data.phone || null }
-  if (data.fax !== undefined) props['傳真'] = { phone_number: data.fax || null }
+  if (data.phone !== undefined) props['公司電話'] = data.phone ? { phone_number: data.phone } : null
+  if (data.fax !== undefined) props['傳真'] = data.fax ? { phone_number: data.fax } : null
   if (data.address !== undefined) props['公司地址'] = { rich_text: richText(data.address) }
   if (data.contact1Name !== undefined) props['聯絡窗口1_姓名'] = { rich_text: richText(data.contact1Name) }
-  if (data.contact1Phone !== undefined) props['聯絡窗口1_電話'] = { phone_number: data.contact1Phone || null }
-  if (data.contact1Email !== undefined) props['聯絡窗口1_Email'] = { email: data.contact1Email || null }
+  if (data.contact1Phone !== undefined) props['聯絡窗口1_電話'] = data.contact1Phone ? { phone_number: data.contact1Phone } : null
+  if (data.contact1Email !== undefined) props['聯絡窗口1_Email'] = data.contact1Email ? { email: data.contact1Email } : null
   if (data.contact2Name !== undefined) props['聯絡窗口2_姓名'] = { rich_text: richText(data.contact2Name) }
-  if (data.contact2Phone !== undefined) props['聯絡窗口2_電話'] = { phone_number: data.contact2Phone || null }
+  if (data.contact2Phone !== undefined) props['聯絡窗口2_電話'] = data.contact2Phone ? { phone_number: data.contact2Phone } : null
   if (data.contact2Email !== undefined) props['聯絡窗口2_Email'] = { email: data.contact2Email || null }
   if (data.giftDragonBoat !== undefined) props['端午送禮'] = { checkbox: data.giftDragonBoat }
   if (data.giftMidAutumn !== undefined) props['中秋送禮'] = { checkbox: data.giftMidAutumn }
