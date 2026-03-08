@@ -327,7 +327,7 @@ function CasesInner() {
                     </span>
                   ))}
                   <select className="fi" style={{width:80,padding:'2px 5px',fontSize:11}} value=""
-                    onChange={e=>{if(e.target.value)setSel((p:any)=>({...p,assignees:[...new Set([...(p.assignees||[]),e.target.value])]}))}}>
+                    onChange={e=>{if(e.target.value)setSel((p:any)=>{ const prev:string[]=p.assignees||[]; return {...p,assignees:prev.includes(e.target.value)?prev:[...prev,e.target.value]} })}}>
                     <option value="">+</option>
                     {(ASSIGNEES[sel.team]||[]).filter((a:string)=>!sel.assignees?.includes(a)).map((a:string)=><option key={a}>{a}</option>)}
                   </select>
