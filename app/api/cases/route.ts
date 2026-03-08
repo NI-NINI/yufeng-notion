@@ -1,24 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { fetchAllCases, createCase } from '@/lib/notion'
+import { fetchAllCases, createCase, updateCase } from '@/lib/notion'
 
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url)
-    const team = searchParams.get('team')
-    const status = searchParams.get('status')
-    const assignee = searchParams.get('assignee')
-
     const clientId = searchParams.get('clientId')
-
-    const filters: any[] = []
-    if (team) filters.push({ property: '負責組別', select: { equals: team } })
-    if (status) filters.push({ property: '案件狀態', select: { equals: status } })
-    if (assignee) filters.push({ property: '承辦人', multi_select: { contains: assignee } })
-    if (clientId) filters.push({ property: '委託單位', relation: { contains: clientId } })
-
-    const cases = await fetchAllCases(
-      filters.length > 0 ? { filter: filters.length === 1 ? filters[0] : { and: filters } } : undefined
-    )
+    let filter: any = undefined
+    if (clientId) {
+      filter = { filter: { property: '委託單位', relation: { contains: clientId } } }
+    }
+    const cases = await fetchAllCases(filter)
     return NextResponse.json(cases)
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })
@@ -27,9 +18,19 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json()
-    const page = await createCase(body)
-    return NextResponse.json({ id: page.id })
+    const data = await req.json()
+    const page = await createCase(data)
+    return NextResponse.json(page)
+  } catch (e: any) {
+    return NextResponse.json({ error: e.message }, { status: 500 })
+  }
+}
+
+export async function PATCH(req: NextRequest) {
+  try {
+    const { id, ...data } = await req.json()
+    const page = await updateCase(id, data)
+    return NextResponse.json(page)
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })
   }

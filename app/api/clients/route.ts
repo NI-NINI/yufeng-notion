@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { fetchAllClients, createClient } from '@/lib/notion'
+import { fetchAllClients, createClient, updateClient } from '@/lib/notion'
 
 export async function GET() {
   try {
@@ -12,9 +12,19 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json()
-    const page = await createClient(body)
-    return NextResponse.json({ id: page.id })
+    const data = await req.json()
+    const page = await createClient(data)
+    return NextResponse.json(page)
+  } catch (e: any) {
+    return NextResponse.json({ error: e.message }, { status: 500 })
+  }
+}
+
+export async function PATCH(req: NextRequest) {
+  try {
+    const { id, ...data } = await req.json()
+    const page = await updateClient(id, data)
+    return NextResponse.json(page)
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })
   }
