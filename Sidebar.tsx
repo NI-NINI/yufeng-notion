@@ -2,55 +2,41 @@
 import { useEffect, useState } from 'react'
 import Sidebar from '@/components/Sidebar'
 
-const COLS = ['未啟動','進行中','等待中','覆核中','已完成','擱淺']
-
-export default function KanbanPage() {
+export default function StuckPage() {
   const [cases, setCases] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
-  useEffect(()=>{
-    (async()=>{
-      setLoading(true)
-      const r = await fetch('/api/cases')
-      const d = await r.json()
-      setCases(Array.isArray(d)?d:[])
+  useEffect(() => {
+    fetch('/api/cases').then(r=>r.json()).then(d => {
+      setCases(d.filter((c: any) => c.status === '擱淺'))
       setLoading(false)
-    })()
-  },[])
+    })
+  }, [])
 
   return (
     <div className="app">
-      <Sidebar/>
-      <div className="main">
-        <div className="page-hd"><h1>看板</h1></div>
-        {loading ? <div className="loading"><div className="spin"/></div>
-        : (
-          <div className="page-ct" style={{paddingBottom:0,overflow:'hidden'}}>
-            <div style={{display:'grid',gridTemplateColumns:`repeat(${COLS.length},1fr)`,gap:12,height:'calc(100vh - 110px)',overflow:'auto'}}>
-              {COLS.map(col=>{
-                const colCases = cases.filter(c=>c.status===col)
-                return (
-                  <div key={col} className="kanban-col" style={{height:'fit-content',minHeight:80}}>
-                    <div className="kanban-lbl">{col} <span style={{fontSize:10,opacity:.6}}>({colCases.length})</span></div>
-                    {colCases.map(c=>(
-                      <a key={c.id} href={`/cases?highlight=${c.id}`} className={`kanban-card ${c.redFlag?'flag':''}`}>
-                        <div style={{fontSize:12,fontWeight:600,marginBottom:4}}>
-                          {c.redFlag && <span style={{color:'var(--rose)',fontSize:10,marginRight:4}}>●</span>}
-                          {c.name}
-                        </div>
-                        <div style={{fontSize:11,color:'var(--tx3)',display:'flex',justifyContent:'space-between'}}>
-                          <span>{c.team} · {(c.assignees||[]).join('、')}</span>
-                          {c.priority && c.priority!=='普通' && <span className={`tg tg-${c.priority==='特急'?'rose':'amber'}`} style={{fontSize:9}}>{c.priority}</span>}
-                        </div>
-                      </a>
-                    ))}
-                    {colCases.length===0 && <div style={{fontSize:11,color:'var(--tx3)',textAlign:'center',padding:'16px 0'}}>無</div>}
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        )}
+      <Sidebar />
+      <div className="main-content">
+        <div className="page-hd"><h1>擱淺追蹤</h1></div>
+        <div className="stat-bar"><span>擱淺中 <b style={{color:'var(--warn)'}}>{cases.length}</b> 件</span></div>
+        <div className="page-ct">
+          {loading ? <div style={{padding:48,textAlign:'center',color:'var(--tx3)'}}>載入中…</div> : (
+            <table>
+              <thead><tr><th>案件</th><th>組別</th><th>承辦</th><th>擱淺原因</th></tr></thead>
+              <tbody>
+                {cases.length === 0 && <tr><td colSpan={4} style={{textAlign:'center',padding:40,color:'var(--tx3)'}}>目前無擱淺案件</td></tr>}
+                {cases.map((c: any) => (
+                  <tr key={c.id}>
+                    <td style={{fontWeight:500}}>{c.name}</td>
+                    <td><span className="tg tg-o">{c.team}</span></td>
+                    <td style={{fontSize:12}}>{(c.assignees||[]).join(', ')||'—'}</td>
+                    <td style={{color:'var(--tx2)',maxWidth:300}}>{c.stuckReason||'—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
       </div>
     </div>
   )
