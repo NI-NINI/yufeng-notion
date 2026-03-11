@@ -381,12 +381,12 @@ export async function createCase(data: Partial<Case_>) {
   if (data.plannedDate) props['預定完成日'] = { date: { start: data.plannedDate } }
   if (data.documentNotes) props['文件備註'] = { rich_text: richText(data.documentNotes) }
   if (data.team) props['負責組別'] = { select: { name: data.team } }
-  if (data.assignees?.length) props['承辦人'] = { multi_select: data.assignees.map(n => ({ name: n })) }
+  if (data.assignees?.length) props['承辦人'] = { select: { name: data.assignees[0] } }
   if (data.appraisers?.length) props['簽證(負責)估價師'] = { multi_select: data.appraisers.map(n => ({ name: n })) }
   if (data.status) props['案件狀態'] = { select: { name: data.status } }
   if (data.priority) props['順位'] = { select: { name: data.priority } }
-  if (data.assignDate) props['派件日'] = { date: { start: data.assignDate } }
-  if (data.dueDate) { props['預計交件日'] = { date: { start: data.dueDate } }; props['出件期限'] = { date: { start: data.dueDate } } }
+  if (data.assignDate) props['date:派件日'] = { date: { start: data.assignDate } }
+  if (data.dueDate) { props['date:預計交件日'] = { date: { start: data.dueDate } }; props['出件期限'] = { date: { start: data.dueDate } } }
   if (data.difficulty) props['案件難度'] = { select: { name: data.difficulty } }
   if (data.stuckReason) props['擱淺原因'] = { rich_text: richText(data.stuckReason) }
   if (data.progressNote) { props['進度備註'] = { rich_text: richText(data.progressNote) }; props['進度'] = { rich_text: richText(data.progressNote) } }
@@ -411,13 +411,13 @@ export async function updateCase(id: string, data: Partial<Case_>) {
   if (data.plannedDate !== undefined) props['預定完成日'] = { date: data.plannedDate ? { start: data.plannedDate } : null }
   if (data.documentNotes !== undefined) props['文件備註'] = { rich_text: richText(data.documentNotes) }
   if (data.team !== undefined) props['負責組別'] = { select: data.team ? { name: data.team } : null }
-  if (data.assignees !== undefined) props['承辦人'] = { multi_select: data.assignees.map(n => ({ name: n })) }
+  if (data.assignees !== undefined) props['承辦人'] = { select: data.assignees?.length ? { name: data.assignees[0] } : null }
   if (data.appraisers !== undefined) props['簽證(負責)估價師'] = { multi_select: data.appraisers.map(n => ({ name: n })) }
   if (data.status !== undefined) props['案件狀態'] = { select: data.status ? { name: data.status } : null }
   if (data.priority !== undefined) props['順位'] = { select: data.priority ? { name: data.priority } : null }
-  if (data.assignDate !== undefined) props['派件日'] = { date: data.assignDate ? { start: data.assignDate } : null }
+  if (data.assignDate !== undefined) props['date:派件日'] = { date: data.assignDate ? { start: data.assignDate } : null }
   if (data.dueDate !== undefined) {
-    props['預計交件日'] = { date: data.dueDate ? { start: data.dueDate } : null }
+    props['date:預計交件日'] = { date: data.dueDate ? { start: data.dueDate } : null }
     props['出件期限'] = { date: data.dueDate ? { start: data.dueDate } : null }
   }
   if (data.difficulty !== undefined) props['案件難度'] = { select: data.difficulty ? { name: data.difficulty } : null }

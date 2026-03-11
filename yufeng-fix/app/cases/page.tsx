@@ -71,14 +71,18 @@ function CasesInner() {
   // payment rows state per case
   const [payRows, setPayRows] = useState<any[]>([])
   const [savingPay, setSavingPay] = useState(false)
+  const [apiError, setApiError] = useState<string>('')
 
   const loadAll = async () => {
     setLoading(true)
+    setApiError('')
     const [cr, clr, pr] = await Promise.all([
       fetch('/api/cases').then(r=>r.json()),
       fetch('/api/clients').then(r=>r.json()),
       fetch('/api/payments').then(r=>r.json()),
     ])
+    if (cr?.error) setApiError('案件API錯誤: ' + cr.error)
+    else if (clr?.error) setApiError('客戶API錯誤: ' + clr.error)
     setCases(Array.isArray(cr)?cr:[])
     setClients(Array.isArray(clr)?clr:[])
     setPayments(Array.isArray(pr)?pr:[])
@@ -222,6 +226,7 @@ function CasesInner() {
           </div>
         </div>
 
+        {apiError && <div style={{padding:'8px 16px',background:'#fee2e2',color:'#991b1b',fontSize:13,borderRadius:6,margin:'4px 0 8px'}}>⚠️ {apiError}</div>}
         <div className="stat-bar">
           <span>共 <b>{filtered.length}</b> 案</span>
           <span>進行中 <b>{filtered.filter(c=>c.status==='進行中').length}</b></span>
