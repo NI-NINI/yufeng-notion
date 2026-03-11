@@ -6,7 +6,7 @@ import Sidebar from '@/components/Sidebar'
 const TYPES = ['都更前期','都更','法拍','一般件','法院案','買賣','地上權','代金','國產署','合理市場租金參考','容積代金試算','公允價值評估','瑕疵','捷運聯開','危老','權利變換','其他']
 const STATUSES = ['未啟動','進行中','等待中','擱淺','覆核中','已完成']
 const PRIORITIES = ['特急','優先','普通','緩慢']
-const TEAMS = ['妮組','文組','未派']
+const TEAMS = ['妮組','文組','舊案(妮+文)']
 // 你現有DB承辦人是全名 select，前端顯示簡稱
 const ASSIGNEES: Record<string,string[]> = { 妮組:['慈妮','紘齊','韋萱','黃慈妮','許紘齊','吳韋萱'], 文組:['文靜','Jenny','旭庭','方謙','徐文靜'], 未派:[] }
 const ALL_ASSIGNEES = ['慈妮','紘齊','韋萱','文靜','Jenny','旭庭','方謙','黃慈妮','徐文靜','吳韋萱','許紘齊']
@@ -34,11 +34,11 @@ const fd = (d:string) => { if(!d) return '—'; const t=new Date(d); return `${t
 const dl = (d:string) => { if(!d) return null; return Math.ceil((new Date(d).getTime()-Date.now())/864e5) }
 
 const emptyCase = () => ({
-  name:'', clientId:'', clientName:'', caseType:'', address:'',
+  caseNumber:'', name:'', clientId:'', clientName:'', caseType:'', address:'',
   team:'妮組', assignees:[] as string[], appraisers:[] as string[],
-  status:'未啟動', priority:'普通', contractAmount:null as number|null,
-  discountRate:100, contractDate:'', assignDate:'', dueDate:'',
-  progressNote:'', documentNotes:'', stuckReason:'',
+  status:'未啟動', isActive:false, isClosed:false,
+  priority:'普通', contractAmount:null as number|null, contractAmountText:'',
+  dueDate:'', progressNote:'', location:'',
   redFlag:false, redFlagNote:'',
   leadingType:'不適用', leadingFee:null as number|null, leadingFeeNote:'',
 })
@@ -127,8 +127,14 @@ function CasesInner() {
     if (!sel) return
     setSaving(true)
     try {
+      const payload = {
+        ...sel,
+        isActive: sel.status === '進行中',
+        isClosed: sel.status === '已完成',
+        contractAmountText: sel.contractAmount != null ? String(sel.contractAmount) : (sel.contractAmountText || ''),
+      }
       await fetch('/api/cases', { method:'PATCH', headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({ id:sel.id, ...sel }) })
+        body:JSON.stringify({ id:sel.id, ...payload }) })
       await loadAll()
       setPanelOpen(false)
     } finally { setSaving(false) }
@@ -137,7 +143,13 @@ function CasesInner() {
   const createNewCase = async () => {
     setSaving(true)
     try {
-      await fetch('/api/cases', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(editing) })
+      const payload = {
+        ...editing,
+        isActive: editing.status === '進行中',
+        isClosed: editing.status === '已完成',
+        contractAmountText: editing.contractAmount != null ? String(editing.contractAmount) : '',
+      }
+      await fetch('/api/cases', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) })
       await loadAll()
       setModalOpen(false)
     } finally { setSaving(false) }
