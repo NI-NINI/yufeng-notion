@@ -148,7 +148,7 @@ export function toCase(page: any, clientMap: Record<string, string> = {}): Case_
     caseNumber: text(page, '案件編號'),
     name: text(page, '案件簡稱') || text(page, '案件編號'),
     clientId,
-    clientName: clientIds.map(id => clientMap[id] || '').filter(Boolean).join(', '),
+    clientName: clientIds.map((id: string) => clientMap[id] || '').filter(Boolean).join(', '),
     caseType: text(page, '估價目的'),
     address: text(page, '標的物地址'),
     contractAmountText: amtText,
