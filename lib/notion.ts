@@ -132,7 +132,7 @@ export function toClient(page: any): Client_ {
 
 // ── toCase ───────────────────────────────────────────────────
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function toCase(page: any): Case_ {
+export function toCase(page: any, clientMap: Record<string, string> = {}): Case_ {
   const isActive = chk(page, '是否進行中')
   const isClosed = chk(page, '是否已結案')
   const status   = isClosed ? '已完成' : isActive ? '進行中' : '未啟動'
@@ -148,7 +148,7 @@ export function toCase(page: any): Case_ {
     caseNumber: text(page, '案件編號'),
     name: text(page, '案件簡稱') || text(page, '案件編號'),
     clientId,
-    clientName: text(page, '委託單位'),  // relation 型別 text() 會回空字串，clientName 由前端或 clientMap 填
+    clientName: clientIds.map(id => clientMap[id] || '').filter(Boolean).join(', '),
     caseType: text(page, '估價目的'),
     address: text(page, '標的物地址'),
     contractAmountText: amtText,
