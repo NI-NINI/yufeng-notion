@@ -3,45 +3,112 @@ import { useEffect, useState, useRef, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Sidebar from '@/components/Sidebar'
 
-const TYPES = ['都更前期','都更','法拍','一般件','法院案','買賣','地上權','代金','國產署','合理市場租金參考','容積代金試算','公允價值評估','瑕疵','捷運聯開','危老','權利變換','其他']
-const STATUSES = ['未啟動','進行中','等待中','擱淺','覆核中','已完成']
-const PRIORITIES = ['特急','優先','普通','緩慢']
-const TEAMS = ['妮組','文組','舊案(妮+文)']
-// Notion DB 承辦人是全名 select
-const NOTION_ASSIGNEES = ['許紘齊','吳韋萱','黃慈妮','方謙','郭旭庭','黃湞儀','徐文靜']
-const ALL_ASSIGNEES = NOTION_ASSIGNEES  // filter bar 用
-// 顯示名稱正規化（全名→簡稱）
+const TYPES = ['都更前期','都更','法拍','法院案','買賣','買賣價值參考','地上權','代金','國產署','合理市場租金參考','容積代金試算','都更前期','公允價值評估','瑕疵','捷運聯開','共有物分割','建物成本價值','合理市場價值評估(合建比)','公私有交換','其他']
+const STATUSES = ['未開始','進行中','等待中','覆核中','已完成']
+const PRIORITIES = ['急件','優先','普通']
+const TEAMS = ['妮組','文組','舊案(妮+文)','舊案']
+const NOTION_ASSIGNEES = ['黃慈妮','徐文靜','張博宇','吳韋萱','許紘齊','方謙','郭旭庭','黃湞儀']
+const ALL_ASSIGNEES = NOTION_ASSIGNEES
 const SHORT: Record<string,string> = {'黃慈妮':'慈妮','徐文靜':'文靜','張博宇':'博宇','吳韋萱':'韋萱','許紘齊':'紘齊','郭旭庭':'旭庭','黃湞儀':'湞儀'}
 const displayName = (n:string) => SHORT[n] || n
-const APPRAISERS = ['所長','副所','博宇','慈妮','文靜']
-const LEADING_TYPES = ['領銜','非領銜','不適用']
+const APPRAISERS = ['所長','副所','博宇','慈妮']
 const PERIODS = ['第1期','第2期','第3期','第4期','第5期','尾款']
+const PROPERTY_TYPES = ['住宅','商業','工業','土地','特殊不動產','土建']
 
-const PC: Record<string,string> = { 慈妮:'#B45309',文靜:'#065F46',紘齊:'#9F1239',韋萱:'#4338CA',Jenny:'#BE185D',旭庭:'#92400E',方謙:'#1E40AF' }
-const uc = (n:string) => PC[n]||'#6B6760'
+const PC: Record<string,string> = { 慈妮:'#B45309',文靜:'#065F46',博宇:'#5B21B6',韋萱:'#4338CA',旭庭:'#92400E',謙:'#1E40AF',紘齊:'#9F1239',湞儀:'#BE185D' }
+const uc = (n:string) => { const k=Object.keys(PC).find(k=>n.includes(k)); return k?PC[k]:'#6B6760' }
 
-const statusDot = (s:string) => {
-  const cls = {進行中:'st-a',覆核中:'st-r',等待中:'st-r',已完成:'st-d',擱淺:'st-s'}
-  return <span className={`st ${(cls as any)[s]||''}`}>{s}</span>
-}
+const statusColor: Record<string,string> = { 進行中:'#2563eb', 等待中:'#d97706', 覆核中:'#ea580c', 已完成:'#059669', 未開始:'#9ca3af' }
+const statusDot = (s:string) => (
+  <span style={{display:'inline-flex',alignItems:'center',gap:4,fontSize:12}}>
+    <span style={{width:7,height:7,borderRadius:'50%',background:statusColor[s]||'#9ca3af',display:'inline-block'}}/>
+    <span style={{color:statusColor[s]||'var(--tx3)'}}>{s}</span>
+  </span>
+)
 const typeBadge = (t:string) => {
-  const cls = {都更:'tg-mauve',都更前期:'tg-mauve',法拍:'tg-blue',一般件:'tg-muted',國產署:'tg-amber',權利變換:'tg-rose'}
+  const cls = {都更:'tg-mauve',都更前期:'tg-mauve',法拍:'tg-blue',法院案:'tg-blue',國產署:'tg-amber',捷運聯開:'tg-rose'}
   return <span className={`tg ${(cls as any)[t]||'tg-muted'}`}>{t}</span>
 }
-const priCls: Record<string,string> = {特急:'tg-rose',優先:'tg-amber',普通:'tg-muted',緩慢:'tg-muted'}
+const priColor: Record<string,string> = { 急件:'#dc2626', 優先:'#d97706', 普通:'#9ca3af' }
 const fmt = (n:number|null|undefined) => n==null?'—':'$'+n.toLocaleString()
 const fd = (d:string) => { if(!d) return '—'; const t=new Date(d); return `${t.getMonth()+1}/${t.getDate()}` }
 const dl = (d:string) => { if(!d) return null; return Math.ceil((new Date(d).getTime()-Date.now())/864e5) }
 
 const emptyCase = () => ({
-  caseNumber:'', name:'', clientId:'', clientName:'', caseType:'', address:'',
+  caseNumber:'', name:'', clientId:'', clientName:'', clientNameText:'',
+  caseType:'', propertyType:'', address:'',
   team:'妮組', assignees:[] as string[], appraisers:[] as string[],
-  status:'未啟動', isActive:false, isClosed:false,
-  priority:'普通', contractAmount:null as number|null, contractAmountText:'',
-  dueDate:'', progressNote:'', location:'',
-  redFlag:false, redFlagNote:'',
-  leadingType:'不適用', leadingFee:null as number|null, leadingFeeNote:'',
+  caseStatus:'未開始', priority:'普通',
+  isActive:false, isClosed:false,
+  contractAmount:null as number|null, contractAmountText:'',
+  dueDate:'', actualDueDate:'', deadline:'',
+  progressNote:'', redFlag:false, redFlagNote:'',
+  difficulty:null as number|null,
 })
+
+// ── 統計圖組件 ────────────────────────────────────────────────
+function StatsCharts({ cases }: { cases: any[] }) {
+  const activeCases = cases.filter(c => c.caseStatus === '進行中')
+  const people = ['黃慈妮','吳韋萱','許紘齊','方謙','郭旭庭','黃湞儀','徐文靜']
+
+  // 各人進行中案件數
+  const caseCount = people.map(p => ({
+    name: displayName(p),
+    count: activeCases.filter(c => c.assignees?.includes(p)).length,
+    team: ['黃慈妮','吳韋萱','許紘齊'].includes(p) ? '妮組' : '文組',
+  }))
+
+  // 各人負荷量（進行中案件難度加總）
+  const workload = people.map(p => ({
+    name: displayName(p),
+    total: activeCases
+      .filter(c => c.assignees?.includes(p) && c.difficulty != null)
+      .reduce((s:number, c:any) => s + (c.difficulty || 0), 0),
+    team: ['黃慈妮','吳韋萱','許紘齊'].includes(p) ? '妮組' : '文組',
+  }))
+
+  const maxCount = Math.max(...caseCount.map(d=>d.count), 1)
+  const maxWork  = Math.max(...workload.map(d=>d.total), 1)
+
+  const teamColor = (team:string) => team === '妮組' ? '#ec4899' : '#3b82f6'
+
+  return (
+    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,padding:'10px 16px 0',flexShrink:0}}>
+      {/* 進行中案件數 */}
+      <div style={{background:'var(--bgc)',border:'1px solid var(--bd)',borderRadius:8,padding:'10px 14px'}}>
+        <div style={{fontSize:11,fontWeight:700,color:'var(--tx3)',marginBottom:8,textTransform:'uppercase',letterSpacing:'.05em'}}>進行中案件數</div>
+        <div style={{display:'flex',flexDirection:'column',gap:6}}>
+          {caseCount.filter(d=>d.count>0||true).map(d=>(
+            <div key={d.name} style={{display:'flex',alignItems:'center',gap:8}}>
+              <div style={{width:36,fontSize:11,fontWeight:600,color:'var(--tx2)',textAlign:'right',flexShrink:0}}>{d.name}</div>
+              <div style={{flex:1,height:16,background:'var(--bgh)',borderRadius:4,overflow:'hidden'}}>
+                <div style={{height:'100%',width:`${(d.count/maxCount)*100}%`,background:teamColor(d.team),borderRadius:4,transition:'width .3s'}}/>
+              </div>
+              <div style={{width:20,fontSize:12,fontWeight:700,fontFamily:'var(--m)',color:'var(--tx)'}}>{d.count}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* 負荷量（難度加總）*/}
+      <div style={{background:'var(--bgc)',border:'1px solid var(--bd)',borderRadius:8,padding:'10px 14px'}}>
+        <div style={{fontSize:11,fontWeight:700,color:'var(--tx3)',marginBottom:8,textTransform:'uppercase',letterSpacing:'.05em'}}>負荷量（進行中難度加總）</div>
+        <div style={{display:'flex',flexDirection:'column',gap:6}}>
+          {workload.map(d=>(
+            <div key={d.name} style={{display:'flex',alignItems:'center',gap:8}}>
+              <div style={{width:36,fontSize:11,fontWeight:600,color:'var(--tx2)',textAlign:'right',flexShrink:0}}>{d.name}</div>
+              <div style={{flex:1,height:16,background:'var(--bgh)',borderRadius:4,overflow:'hidden'}}>
+                <div style={{height:'100%',width:`${maxWork>0?(d.total/maxWork)*100:0}%`,background:d.total>10?'#dc2626':d.total>6?'#d97706':teamColor(d.team),borderRadius:4,transition:'width .3s'}}/>
+              </div>
+              <div style={{width:24,fontSize:12,fontWeight:700,fontFamily:'var(--m)',color:d.total>10?'#dc2626':d.total>6?'#d97706':'var(--tx)'}}>{d.total||'—'}</div>
+            </div>
+          ))}
+        </div>
+        <div style={{marginTop:8,fontSize:10,color:'var(--tx3)'}}>● 紅色 &gt;10｜橙色 &gt;6｜正常以下</div>
+      </div>
+    </div>
+  )
+}
 
 function CasesInner() {
   const searchParams = useSearchParams()
@@ -56,7 +123,8 @@ function CasesInner() {
   const [fTeam, setFTeam] = useState('')
   const [fType, setFType] = useState('')
   const [fAssignee, setFAssignee] = useState('')
-  const [sel, setSel] = useState<any|null>(null)
+  const [showStats, setShowStats] = useState(true)
+  const [selCase, setSelCase] = useState<any|null>(null)
   const [panelOpen, setPanelOpen] = useState(false)
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<any>(emptyCase())
@@ -68,7 +136,6 @@ function CasesInner() {
   const [clientDD, setClientDD] = useState(false)
   const [newClientSearch, setNewClientSearch] = useState('')
   const [newClientDD, setNewClientDD] = useState(false)
-  // payment rows state per case
   const [payRows, setPayRows] = useState<any[]>([])
   const [savingPay, setSavingPay] = useState(false)
   const [apiError, setApiError] = useState<string>('')
@@ -90,7 +157,6 @@ function CasesInner() {
   }
   useEffect(() => { loadAll() }, [])
 
-  // auto-open highlight
   useEffect(() => {
     if (highlightId && cases.length > 0) {
       const c = cases.find(x=>x.id===highlightId)
@@ -101,13 +167,12 @@ function CasesInner() {
   const getCasePayments = (caseId:string) => payments.filter(p=>p.caseId===caseId)
 
   const openPanel = (c:any) => {
-    setSel(c)
+    setSelCase(c)
     const cp = getCasePayments(c.id)
-    setPayRows(cp.map(p=>({...p})))
-    setClientSearch(c.clientName||'')
+    setPayRows(cp.map((p:any)=>({...p})))
+    setClientSearch(c.clientName || c.clientNameText || '')
     setPanelOpen(true)
-    // load existing attachments
-    const pid = c.notionPageId || c.id
+    const pid = c.id
     if (pid && !fileUploads[pid]) {
       fetch(`/api/upload?casePageId=${pid}`)
         .then(r=>r.json())
@@ -115,7 +180,7 @@ function CasesInner() {
         .catch(()=>{})
     }
   }
-  const closePanel = () => { setPanelOpen(false); setSel(null) }
+  const closePanel = () => { setPanelOpen(false); setSelCase(null) }
 
   const openNew = () => {
     setEditing(emptyCase())
@@ -124,17 +189,17 @@ function CasesInner() {
   }
 
   const saveCase = async () => {
-    if (!sel) return
+    if (!selCase) return
     setSaving(true)
     try {
       const payload = {
-        ...sel,
-        isActive: sel.status === '進行中',
-        isClosed: sel.status === '已完成',
-        contractAmountText: sel.contractAmount != null ? String(sel.contractAmount) : (sel.contractAmountText || ''),
+        ...selCase,
+        isActive: selCase.caseStatus === '進行中',
+        isClosed: selCase.caseStatus === '已完成',
+        contractAmountText: selCase.contractAmount != null ? String(selCase.contractAmount) : (selCase.contractAmountText || ''),
       }
       await fetch('/api/cases', { method:'PATCH', headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({ id:sel.id, ...payload }) })
+        body:JSON.stringify({ id:selCase.id, ...payload }) })
       await loadAll()
       setPanelOpen(false)
     } finally { setSaving(false) }
@@ -145,8 +210,8 @@ function CasesInner() {
     try {
       const payload = {
         ...editing,
-        isActive: editing.status === '進行中',
-        isClosed: editing.status === '已完成',
+        isActive: editing.caseStatus === '進行中',
+        isClosed: editing.caseStatus === '已完成',
         contractAmountText: editing.contractAmount != null ? String(editing.contractAmount) : '',
       }
       await fetch('/api/cases', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) })
@@ -162,19 +227,14 @@ function CasesInner() {
         await fetch('/api/payments', { method:'PATCH', headers:{'Content-Type':'application/json'}, body:JSON.stringify(p) })
       } else {
         await fetch('/api/payments', { method:'POST', headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({
-            ...p, caseId:sel?.id,
-            title:`${sel?.name||''} ${p.period||''}`,
-            paymentType:'一般款項'
-          })
-        })
+          body:JSON.stringify({ ...p, caseId:selCase?.id, title:`${selCase?.name||''} ${p.period||''}`, paymentType:'一般款項' }) })
       }
       await loadAll()
     } finally { setSavingPay(false) }
   }
 
   const addPayRow = () => {
-    const base = sel?.contractAmount||0
+    const base = selCase?.contractAmount||0
     const used = payRows.reduce((s:number,r:any)=>s+(parseFloat(r.ratePct)||0),0)
     setPayRows(prev=>[...prev,{
       id:`new-${Date.now()}`, period:PERIODS[prev.length]||'第1期',
@@ -187,28 +247,19 @@ function CasesInner() {
     setPayRows(prev => prev.map((r,i) => {
       if (i !== idx) return r
       const updated = { ...r, [field]: val }
-      if (field === 'ratePct') {
-        updated.amount = Math.round((sel?.contractAmount||0) * parseFloat(val||0) / 100)
-      }
+      if (field === 'ratePct') updated.amount = Math.round((selCase?.contractAmount||0) * parseFloat(val||0) / 100)
       return updated
     }))
   }
 
   const filtered = cases.filter(c => {
-    if (search && !c.name.includes(search) && !c.clientName?.includes(search)) return false
-    if (fStatus && c.status !== fStatus) return false
+    if (search && !c.name?.includes(search) && !c.clientName?.includes(search) && !c.clientNameText?.includes(search) && !c.caseNumber?.includes(search)) return false
+    if (fStatus && c.caseStatus !== fStatus) return false
     if (fTeam && c.team !== fTeam) return false
     if (fType && c.caseType !== fType) return false
     if (fAssignee && !c.assignees?.includes(fAssignee)) return false
     return true
   })
-
-  const daysClass = (days:number|null) => {
-    if (days===null) return ''
-    if (days < 0) return 'color:var(--rose);fontWeight:600'
-    if (days <= 3) return 'color:var(--rose)'
-    return ''
-  }
 
   const clientOpts = clients.filter(c=>c.name.includes(clientSearch))
   const newClientOpts = clients.filter(c=>c.name.includes(newClientSearch))
@@ -220,12 +271,16 @@ function CasesInner() {
         <div className="page-hd">
           <h1>案件管理</h1>
           <div className="page-hd-r">
+            <button className="btn btn-sm" style={{fontSize:11}} onClick={()=>setShowStats(v=>!v)}>{showStats?'隱藏統計':'顯示統計'}</button>
             <input className="search-input" placeholder="搜尋案件…" value={search} onChange={e=>setSearch(e.target.value)} />
             <button className="btn btn-primary btn-sm" onClick={openNew}>＋ 新增</button>
           </div>
         </div>
 
-        <div className="filter-bar">
+        {/* 統計圖 */}
+        {showStats && !loading && <StatsCharts cases={cases} />}
+
+        <div className="filter-bar" style={{marginTop:showStats?8:0}}>
           <div className="filter-chip">狀態<select value={fStatus} onChange={e=>setFStatus(e.target.value)}><option value="">全部</option>{STATUSES.map(s=><option key={s}>{s}</option>)}</select></div>
           <div className="filter-chip">組別<select value={fTeam} onChange={e=>setFTeam(e.target.value)}><option value="">全部</option>{TEAMS.map(t=><option key={t}>{t}</option>)}</select></div>
           <div className="filter-chip">類型<select value={fType} onChange={e=>setFType(e.target.value)}><option value="">全部</option>{TYPES.map(t=><option key={t}>{t}</option>)}</select></div>
@@ -241,8 +296,8 @@ function CasesInner() {
         {apiError && <div style={{padding:'8px 16px',background:'#fee2e2',color:'#991b1b',fontSize:13,borderRadius:6,margin:'4px 0 8px'}}>⚠️ {apiError}</div>}
         <div className="stat-bar">
           <span>共 <b>{filtered.length}</b> 案</span>
-          <span>進行中 <b>{filtered.filter(c=>c.status==='進行中').length}</b></span>
-          <span style={{color:'var(--rose)'}}>紅燈 <b>{filtered.filter(c=>c.redFlag).length}</b></span>
+          <span>進行中 <b>{filtered.filter(c=>c.caseStatus==='進行中').length}</b></span>
+          <span style={{color:'var(--rose)'}}>注意! <b>{filtered.filter(c=>c.redFlag).length}</b></span>
           <span style={{marginLeft:'auto',fontFamily:'var(--m)',fontSize:11}}>
             簽約總額 <b>${filtered.reduce((s,c)=>s+(c.contractAmount||0),0).toLocaleString()}</b>
           </span>
@@ -255,19 +310,21 @@ function CasesInner() {
             <table>
               <thead><tr>
                 <th>#</th><th>類型</th><th>案件名稱</th><th>組別</th>
-                <th>承辦</th><th>狀態</th><th>順位</th><th>交件日</th><th>簽約金額</th>
+                <th>承辦</th><th>狀態</th><th>順位</th><th>難度</th>
+                <th>預計出件日</th><th>實際出件日</th><th>簽約金額</th>
               </tr></thead>
               <tbody>
                 {filtered.map(c => {
                   const days = dl(c.dueDate)
+                  const clientDisplay = c.clientName || c.clientNameText || ''
                   return (
                     <tr key={c.id} className={c.redFlag?'red-row':''} onClick={()=>openPanel(c)}>
                       <td className="mono muted">{c.caseNumber||'—'}</td>
                       <td>{typeBadge(c.caseType||'其他')}</td>
                       <td>
-                        {c.redFlag && <span style={{color:'var(--rose)',fontSize:10,marginRight:4}}>●</span>}
+                        {c.redFlag && <span style={{color:'var(--rose)',fontSize:11,marginRight:4}}>⚠️</span>}
                         <b>{c.name}</b>
-                        {c.clientName && <span className="muted" style={{marginLeft:5,fontSize:11}}>{c.clientName}</span>}
+                        {clientDisplay && <span className="muted" style={{marginLeft:5,fontSize:11}}>{clientDisplay}</span>}
                       </td>
                       <td className="muted">{c.team}</td>
                       <td>
@@ -277,8 +334,15 @@ function CasesInner() {
                           ))}
                         </div>
                       </td>
-                      <td>{statusDot(c.status)}</td>
-                      <td><span className={`tg ${priCls[c.priority]||'tg-muted'}`}>{c.priority}</span></td>
+                      <td>{statusDot(c.caseStatus||'未開始')}</td>
+                      <td>
+                        {c.priority && <span style={{fontSize:11,fontWeight:600,color:priColor[c.priority]||'var(--tx3)'}}>{c.priority}</span>}
+                      </td>
+                      <td>
+                        {c.difficulty != null ? (
+                          <span style={{fontFamily:'var(--m)',fontSize:12,color:c.difficulty>=4?'#dc2626':c.difficulty>=3?'#d97706':'var(--tx2)'}}>{c.difficulty}</span>
+                        ) : <span className="muted">—</span>}
+                      </td>
                       <td>
                         {c.dueDate ? (
                           days !== null && days <= 3 ? (
@@ -288,6 +352,7 @@ function CasesInner() {
                           ) : <span className="muted">{fd(c.dueDate)}</span>
                         ) : <span className="muted">—</span>}
                       </td>
+                      <td><span className="muted">{c.actualDueDate ? fd(c.actualDueDate) : '—'}</span></td>
                       <td className="mono">{fmt(c.contractAmount)}</td>
                     </tr>
                   )
@@ -301,11 +366,11 @@ function CasesInner() {
       {/* ─── DETAIL PANEL ─── */}
       <div className={`dp-overlay ${panelOpen?'open':''}`}>
         <div className="dp-bg" onClick={closePanel}/>
-        {sel && (
+        {selCase && (
           <div className="dp">
             <div className="dp-hd">
               <div>
-                <div style={{fontSize:11,color:'var(--tx3)',fontFamily:'var(--m)'}}>#{sel.caseNumber} · {sel.caseType} · {sel.team}</div>
+                <div style={{fontSize:11,color:'var(--tx3)',fontFamily:'var(--m)'}}>#{selCase.caseNumber} · {selCase.caseType} · {selCase.team}</div>
               </div>
               <div style={{display:'flex',gap:6}}>
                 <button className="btn btn-primary btn-sm" onClick={saveCase} disabled={saving}>{saving?'…':'儲存'}</button>
@@ -316,13 +381,28 @@ function CasesInner() {
               {/* 案件名稱 */}
               <div style={{marginBottom:14}}>
                 <input style={{fontSize:18,fontWeight:700,border:'none',background:'transparent',width:'100%',outline:'none',color:'var(--tx)'}}
-                  value={sel.name||''} onChange={e=>setSel((p:any)=>({...p,name:e.target.value}))} />
+                  value={selCase.name||''} onChange={e=>setSelCase((p:any)=>({...p,name:e.target.value}))} />
               </div>
 
               <div className="dp-g">
+                <div className="dp-gl">案件狀態</div>
+                <select className="fi" value={selCase.caseStatus||''} onChange={e=>setSelCase((p:any)=>({...p,caseStatus:e.target.value,isActive:e.target.value==='進行中',isClosed:e.target.value==='已完成'}))}>
+                  {STATUSES.map(s=><option key={s}>{s}</option>)}
+                </select>
+
+                <div className="dp-gl">順位</div>
+                <select className="fi" value={selCase.priority||''} onChange={e=>setSelCase((p:any)=>({...p,priority:e.target.value}))}>
+                  <option value="">—</option>{PRIORITIES.map(p=><option key={p}>{p}</option>)}
+                </select>
+
                 <div className="dp-gl">類型</div>
-                <select className="fi" value={sel.caseType||''} onChange={e=>setSel((p:any)=>({...p,caseType:e.target.value}))}>
+                <select className="fi" value={selCase.caseType||''} onChange={e=>setSelCase((p:any)=>({...p,caseType:e.target.value}))}>
                   <option value="">—</option>{TYPES.map(t=><option key={t}>{t}</option>)}
+                </select>
+
+                <div className="dp-gl">標的物類型</div>
+                <select className="fi" value={selCase.propertyType||''} onChange={e=>setSelCase((p:any)=>({...p,propertyType:e.target.value}))}>
+                  <option value="">—</option>{PROPERTY_TYPES.map(t=><option key={t}>{t}</option>)}
                 </select>
 
                 <div className="dp-gl">委託方</div>
@@ -336,136 +416,95 @@ function CasesInner() {
                       <div className="dd">
                         {clientOpts.slice(0,8).map((c:any)=>(
                           <div key={c.id} className="dd-opt" onClick={()=>{
-                            setSel((p:any)=>({...p,clientId:c.id,clientName:c.name}))
+                            setSelCase((p:any)=>({...p,clientId:c.id,clientName:c.name}))
                             setClientSearch(c.name); setClientDD(false)
                           }}>{c.name} <span className="dd-sub">{c.clientType}</span></div>
                         ))}
                       </div>
                     )}
                   </div>
-                  {sel.clientId && <a href="/clients" className="btn btn-sm" style={{marginTop:4,display:'inline-flex'}}>→ 客戶頁</a>}
+                  {selCase.clientId && <a href="/clients" className="btn btn-sm" style={{marginTop:4,display:'inline-flex'}}>→ 客戶頁</a>}
                 </div>
 
                 <div className="dp-gl">組別</div>
-                <select className="fi" value={sel.team||''} onChange={e=>setSel((p:any)=>({...p,team:e.target.value,assignees:[]}))}>
+                <select className="fi" value={selCase.team||''} onChange={e=>setSelCase((p:any)=>({...p,team:e.target.value,assignees:[]}))}>
                   {TEAMS.map(t=><option key={t}>{t}</option>)}
                 </select>
 
                 <div className="dp-gl">承辦</div>
                 <div style={{display:'flex',gap:4,flexWrap:'wrap',alignItems:'center'}}>
-                  {(sel.assignees||[]).map((a:string)=>(
-                    <span key={a} className="tg tg-rose" style={{cursor:'pointer'}} onClick={()=>setSel((p:any)=>({...p,assignees:p.assignees.filter((x:string)=>x!==a)}))}>
+                  {(selCase.assignees||[]).map((a:string)=>(
+                    <span key={a} className="tg tg-rose" style={{cursor:'pointer'}} onClick={()=>setSelCase((p:any)=>({...p,assignees:p.assignees.filter((x:string)=>x!==a)}))}>
                       {displayName(a)} ✕
                     </span>
                   ))}
                   <select className="fi" style={{width:80,padding:'2px 5px',fontSize:11}} value=""
-                    onChange={e=>{if(e.target.value)setSel((p:any)=>{ const prev:string[]=p.assignees||[]; return {...p,assignees:prev.includes(e.target.value)?prev:[...prev,e.target.value]} })}}>
+                    onChange={e=>{if(e.target.value)setSelCase((p:any)=>{ const prev:string[]=p.assignees||[]; return {...p,assignees:prev.includes(e.target.value)?prev:[...prev,e.target.value]} })}}>
                     <option value="">+</option>
-                    {NOTION_ASSIGNEES.filter((a:string)=>!sel.assignees?.includes(a)).map((a:string)=><option key={a} value={a}>{displayName(a)}</option>)}
+                    {NOTION_ASSIGNEES.filter((a:string)=>!selCase.assignees?.includes(a)).map((a:string)=><option key={a} value={a}>{displayName(a)}</option>)}
                   </select>
                 </div>
 
                 <div className="dp-gl">簽證估價師</div>
                 <div style={{display:'flex',gap:4,flexWrap:'wrap',alignItems:'center'}}>
-                  {(sel.appraisers||[]).map((a:string)=>(
-                    <span key={a} className="tg tg-blue" style={{cursor:'pointer'}} onClick={()=>setSel((p:any)=>({...p,appraisers:(p.appraisers||[]).filter((x:string)=>x!==a)}))}>
+                  {(selCase.appraisers||[]).map((a:string)=>(
+                    <span key={a} className="tg tg-blue" style={{cursor:'pointer'}} onClick={()=>setSelCase((p:any)=>({...p,appraisers:(p.appraisers||[]).filter((x:string)=>x!==a)}))}>
                       {a} ✕
                     </span>
                   ))}
                   <select className="fi" style={{width:80,padding:'2px 5px',fontSize:11}} value=""
-                    onChange={e=>{if(e.target.value)setSel((p:any)=>{ const prev:string[]=p.appraisers||[]; return {...p,appraisers:prev.includes(e.target.value)?prev:[...prev,e.target.value]} })}}>
+                    onChange={e=>{if(e.target.value)setSelCase((p:any)=>{ const prev:string[]=p.appraisers||[]; return {...p,appraisers:prev.includes(e.target.value)?prev:[...prev,e.target.value]} })}}>
                     <option value="">+</option>
-                    {APPRAISERS.filter((a:string)=>!(sel.appraisers||[]).includes(a)).map((a:string)=><option key={a}>{a}</option>)}
+                    {APPRAISERS.filter((a:string)=>!(selCase.appraisers||[]).includes(a)).map((a:string)=><option key={a}>{a}</option>)}
                   </select>
                 </div>
 
-                <div className="dp-gl">狀態</div>
-                <select className="fi" value={sel.status||''} onChange={e=>setSel((p:any)=>({...p,status:e.target.value}))}>
-                  {STATUSES.map(s=><option key={s}>{s}</option>)}
-                </select>
+                <div className="dp-gl">案件難度</div>
+                <div style={{display:'flex',gap:6,alignItems:'center'}}>
+                  {[1,2,3,4,5].map(n=>(
+                    <button key={n} onClick={()=>setSelCase((p:any)=>({...p,difficulty:p.difficulty===n?null:n}))}
+                      style={{width:30,height:30,borderRadius:6,border:'1px solid var(--bd)',
+                        background:selCase.difficulty===n?(n>=4?'#dc2626':n>=3?'#d97706':'#3b82f6'):'var(--bgc)',
+                        color:selCase.difficulty===n?'#fff':'var(--tx2)',fontWeight:700,fontSize:13,cursor:'pointer'}}>
+                      {n}
+                    </button>
+                  ))}
+                  <span style={{fontSize:11,color:'var(--tx3)',marginLeft:4}}>{selCase.difficulty!=null?`難度 ${selCase.difficulty}`:'未設定'}</span>
+                </div>
 
-                <div className="dp-gl">順位</div>
-                <select className="fi" value={sel.priority||''} onChange={e=>setSel((p:any)=>({...p,priority:e.target.value}))}>
-                  {PRIORITIES.map(p=><option key={p}>{p}</option>)}
-                </select>
-
-                <div className="dp-gl">交件日</div>
+                <div className="dp-gl">預計出件日</div>
                 <div style={{display:'flex',alignItems:'center',gap:8}}>
-                  <input type="date" className="fi" style={{width:'auto'}} value={sel.dueDate||''} onChange={e=>setSel((p:any)=>({...p,dueDate:e.target.value}))} />
-                  {sel.dueDate && dl(sel.dueDate) !== null && dl(sel.dueDate)! <= 3 && (
+                  <input type="date" className="fi" style={{width:'auto'}} value={selCase.dueDate||''} onChange={e=>setSelCase((p:any)=>({...p,dueDate:e.target.value}))} />
+                  {selCase.dueDate && dl(selCase.dueDate) !== null && dl(selCase.dueDate)! <= 3 && (
                     <span className="tg tg-rose" style={{fontSize:10}}>
-                      {dl(sel.dueDate)! < 0 ? `逾期${Math.abs(dl(sel.dueDate)!)}天` : `${dl(sel.dueDate)}天後`}
+                      {dl(selCase.dueDate)! < 0 ? `逾期${Math.abs(dl(selCase.dueDate)!)}天` : `${dl(selCase.dueDate)}天後`}
                     </span>
                   )}
                 </div>
+
+                <div className="dp-gl">實際出件日</div>
+                <input type="date" className="fi" style={{width:'auto'}} value={selCase.actualDueDate||''} onChange={e=>setSelCase((p:any)=>({...p,actualDueDate:e.target.value}))} />
 
                 <div className="dp-gl">簽約金額</div>
                 <div style={{display:'flex',alignItems:'center',gap:5}}>
                   <span className="muted">$</span>
                   <input type="number" className="fi" style={{width:130,textAlign:'right',fontFamily:'var(--m)'}}
-                    value={sel.contractAmount||''} onChange={e=>setSel((p:any)=>({...p,contractAmount:parseFloat(e.target.value)||null}))} />
+                    value={selCase.contractAmount||''} onChange={e=>setSelCase((p:any)=>({...p,contractAmount:parseFloat(e.target.value)||null}))} />
                 </div>
+
+                <div className="dp-gl">標的物地址</div>
+                <input className="fi" value={selCase.address||''} onChange={e=>setSelCase((p:any)=>({...p,address:e.target.value}))} />
               </div>
 
-              {/* 業務紅燈 */}
-              <div className={`flag-row ${sel.redFlag?'on':''}`}>
+              {/* 注意! */}
+              <div className={`flag-row ${selCase.redFlag?'on':''}`}>
                 <label style={{display:'flex',alignItems:'center',gap:6,fontSize:12,fontWeight:600,cursor:'pointer',whiteSpace:'nowrap'}}>
-                  <input type="checkbox" checked={sel.redFlag||false} onChange={e=>setSel((p:any)=>({...p,redFlag:e.target.checked}))} />
-                  業務紅燈
+                  <input type="checkbox" checked={selCase.redFlag||false} onChange={e=>setSelCase((p:any)=>({...p,redFlag:e.target.checked}))} />
+                  注意!
                 </label>
-                <input className="fi" style={{flex:1}} placeholder="紅燈原因…"
-                  value={sel.redFlagNote||''} onChange={e=>setSel((p:any)=>({...p,redFlagNote:e.target.value}))} />
+                <input className="fi" style={{flex:1}} placeholder="注意事項…"
+                  value={selCase.redFlagNote||''} onChange={e=>setSelCase((p:any)=>({...p,redFlagNote:e.target.value}))} />
               </div>
-
-              {/* 領銜設定 */}
-              {(sel.caseType==='都更'||sel.caseType==='都更前期'||sel.caseType==='權利變換') && (
-                <div className="sec">
-                  <div className="sec-hd"><h3>領銜設定</h3></div>
-                  <div className="sec-body">
-                    <div className="lt-toggle">
-                      {LEADING_TYPES.map(t=>(
-                        <button key={t} className={`lt-btn ${sel.leadingType===t?'active':''}`}
-                          onClick={()=>setSel((p:any)=>({...p,leadingType:t}))}>{t}</button>
-                      ))}
-                    </div>
-
-                    {sel.leadingType==='領銜' && (
-                      <div>
-                        <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10}}>
-                          <span style={{fontSize:11,fontWeight:600,color:'var(--tx2)'}}>領銜費總額 $</span>
-                          <input className="fi" type="number" style={{width:120,textAlign:'right',fontFamily:'var(--m)'}}
-                            value={sel.leadingFee||''} onChange={e=>setSel((p:any)=>({...p,leadingFee:parseFloat(e.target.value)||null}))} />
-                        </div>
-                        {sel.leadingFee && (
-                          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
-                            {[1,2].map(period=>(
-                              <div key={period} style={{border:'1px solid var(--bd)',borderRadius:6,padding:10}}>
-                                <div style={{fontSize:11,fontWeight:600,marginBottom:5}}>第{period}期（50%）</div>
-                                <div style={{fontFamily:'var(--m)',fontSize:16,fontWeight:700,marginBottom:7}}>
-                                  ${Math.round(sel.leadingFee/2).toLocaleString()}
-                                </div>
-                                <div style={{fontSize:10,color:'var(--tx3)'}}>付款記錄在「付款管理」頁設定</div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {sel.leadingType==='非領銜' && (
-                      <div style={{border:'1px solid var(--bd)',borderRadius:6,padding:10}}>
-                        <div style={{fontSize:12,color:'var(--tx2)',marginBottom:4}}>
-                          作業獎金 70%：<b style={{fontFamily:'var(--m)'}}>${Math.round((sel.contractAmount||0)*0.7).toLocaleString()}</b>
-                        </div>
-                        <div style={{fontSize:12,color:'var(--amber)',marginBottom:8}}>
-                          全公司三成池 30%：<b style={{fontFamily:'var(--m)'}}>${Math.round((sel.contractAmount||0)*0.3).toLocaleString()}</b>
-                        </div>
-                        <div className="fg"><label>業務人員</label><input className="fi" style={{width:150}} placeholder="業務姓名" /></div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
 
               {/* 分期付款 */}
               <div className="sec">
@@ -488,9 +527,7 @@ function CasesInner() {
                           type="number" value={p.ratePct||''} onChange={e=>updatePayRow(i,'ratePct',e.target.value)} />
                         <span style={{fontSize:10,color:'var(--tx3)'}}>%</span>
                       </div>
-                      <span style={{fontFamily:'var(--m)',fontSize:13,fontWeight:700}}>
-                        ${(p.amount||0).toLocaleString()}
-                      </span>
+                      <span style={{fontFamily:'var(--m)',fontSize:13,fontWeight:700}}>${(p.amount||0).toLocaleString()}</span>
                       <select className="fi" style={{padding:'2px 4px',fontSize:11}} value={p.status||'未請款'}
                         onChange={e=>updatePayRow(i,'status',e.target.value)}>
                         {['未請款','可請款','已請款','已收款'].map(s=><option key={s}>{s}</option>)}
@@ -503,15 +540,8 @@ function CasesInner() {
                   ))}
                   {payRows.length > 0 && (
                     <div style={{display:'flex',justifyContent:'space-between',fontSize:11,marginTop:8}}>
-                      <span style={{color:'var(--tx3)'}}>
-                        合計 {payRows.reduce((s,r)=>s+(parseFloat(r.ratePct)||0),0).toFixed(0)}%
-                        {payRows.reduce((s,r)=>s+(parseFloat(r.ratePct)||0),0)===100 ? ' ✓' : ' ⚠️'}
-                      </span>
-                      <span style={{color:'var(--tx2)'}}>
-                        已實收 <b style={{fontFamily:'var(--m)'}}>
-                          ${payRows.filter(r=>r.status==='已收款').reduce((s,r)=>s+(r.amount||0),0).toLocaleString()}
-                        </b>
-                      </span>
+                      <span style={{color:'var(--tx3)'}}>合計 {payRows.reduce((s,r)=>s+(parseFloat(r.ratePct)||0),0).toFixed(0)}%{payRows.reduce((s,r)=>s+(parseFloat(r.ratePct)||0),0)===100?' ✓':' ⚠️'}</span>
+                      <span style={{color:'var(--tx2)'}}>已實收 <b style={{fontFamily:'var(--m)'}}>${payRows.filter(r=>r.status==='已收款').reduce((s,r)=>s+(r.amount||0),0).toLocaleString()}</b></span>
                     </div>
                   )}
                   <div style={{marginTop:10,display:'flex',justifyContent:'flex-end'}}>
@@ -522,31 +552,21 @@ function CasesInner() {
                 </div>
               </div>
 
-              {/* 備註 */}
+              {/* 進度備註 */}
               <div style={{marginBottom:10}}>
                 <div style={{fontSize:10,fontWeight:700,color:'var(--tx3)',textTransform:'uppercase',letterSpacing:'.05em',marginBottom:5}}>進度備註</div>
-                <textarea className="dp-note" value={sel.progressNote||''} onChange={e=>setSel((p:any)=>({...p,progressNote:e.target.value}))} />
-              </div>
-              <div style={{marginBottom:14}}>
-                <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:5}}>
-                  <span style={{fontSize:10,fontWeight:700,color:'var(--tx3)',textTransform:'uppercase',letterSpacing:'.05em'}}>文件備註</span>
-                  {sel.documentNotes && <span className="tg tg-amber" style={{fontSize:10}}>注意</span>}
-                </div>
-                <textarea className={`dp-note ${sel.documentNotes?'warn':''}`}
-                  value={sel.documentNotes||''} onChange={e=>setSel((p:any)=>({...p,documentNotes:e.target.value}))} />
+                <textarea className="dp-note" value={selCase.progressNote||''} onChange={e=>setSelCase((p:any)=>({...p,progressNote:e.target.value}))} />
               </div>
 
               {/* 附件上傳 */}
-              {sel.id && (() => {
-                const pid = sel.id
+              {selCase.id && (() => {
+                const pid = selCase.id
                 const attachments = fileUploads[pid] || []
                 return (
                   <div style={{marginBottom:14}}>
                     <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:8}}>
-                      <span style={{fontSize:10,fontWeight:700,color:'var(--tx3)',textTransform:'uppercase',letterSpacing:'.05em'}}>附件（合約 / 報價單）</span>
-                      <button className="btn btn-sm" onClick={()=>fileInputRef.current?.click()} disabled={uploading}>
-                        {uploading ? '上傳中…' : '＋ 上傳'}
-                      </button>
+                      <span style={{fontSize:10,fontWeight:700,color:'var(--tx3)',textTransform:'uppercase',letterSpacing:'.05em'}}>附件</span>
+                      <button className="btn btn-sm" onClick={()=>fileInputRef.current?.click()} disabled={uploading}>{uploading?'上傳中…':'＋ 上傳'}</button>
                       <input ref={fileInputRef} type="file" accept=".pdf,image/*" style={{display:'none'}} multiple
                         onChange={async e=>{
                           const files = Array.from(e.target.files||[])
@@ -560,9 +580,7 @@ function CasesInner() {
                               fd2.append('label', file.name)
                               const r = await fetch('/api/upload',{method:'POST',body:fd2})
                               const d = await r.json()
-                              if(d.url){
-                                setFileUploads(prev=>({...prev,[pid]:[...(prev[pid]||[]),{url:d.url,name:file.name,type:file.type}]}))
-                              }
+                              if(d.url) setFileUploads(prev=>({...prev,[pid]:[...(prev[pid]||[]),{url:d.url,name:file.name,type:file.type}]}))
                             }
                           } finally { setUploading(false); if(fileInputRef.current) fileInputRef.current.value='' }
                         }}
@@ -585,9 +603,7 @@ function CasesInner() {
                           )}
                         </div>
                       ))}
-                      {!attachments.length && (
-                        <div style={{fontSize:12,color:'var(--tx3)',padding:'8px 0',textAlign:'center'}}>尚無附件 — 支援 PDF / 圖片</div>
-                      )}
+                      {!attachments.length && <div style={{fontSize:12,color:'var(--tx3)',padding:'8px 0',textAlign:'center'}}>尚無附件</div>}
                     </div>
                   </div>
                 )
@@ -635,15 +651,25 @@ function CasesInner() {
                   {TEAMS.map(t=><option key={t}>{t}</option>)}
                 </select>
               </div>
+              <div className="fg"><label>案件狀態</label>
+                <select className="fi" value={editing.caseStatus||'未開始'} onChange={e=>setEditing((p:any)=>({...p,caseStatus:e.target.value}))}>
+                  {STATUSES.map(s=><option key={s}>{s}</option>)}
+                </select>
+              </div>
+            </div>
+            <div className="row2">
               <div className="fg"><label>順位</label>
                 <select className="fi" value={editing.priority||'普通'} onChange={e=>setEditing((p:any)=>({...p,priority:e.target.value}))}>
                   {PRIORITIES.map(p=><option key={p}>{p}</option>)}
                 </select>
               </div>
+              <div className="fg"><label>案件難度 (1-5)</label>
+                <input type="number" min="1" max="5" className="fi" value={editing.difficulty||''} onChange={e=>setEditing((p:any)=>({...p,difficulty:parseInt(e.target.value)||null}))} />
+              </div>
             </div>
             <div className="row2">
-              <div className="fg"><label>派件日</label><input type="date" className="fi" value={editing.assignDate||''} onChange={e=>setEditing((p:any)=>({...p,assignDate:e.target.value}))} /></div>
-              <div className="fg"><label>預計交件日</label><input type="date" className="fi" value={editing.dueDate||''} onChange={e=>setEditing((p:any)=>({...p,dueDate:e.target.value}))} /></div>
+              <div className="fg"><label>預計出件日</label><input type="date" className="fi" value={editing.dueDate||''} onChange={e=>setEditing((p:any)=>({...p,dueDate:e.target.value}))} /></div>
+              <div className="fg"><label>實際出件日</label><input type="date" className="fi" value={editing.actualDueDate||''} onChange={e=>setEditing((p:any)=>({...p,actualDueDate:e.target.value}))} /></div>
             </div>
             <div className="fg"><label>簽約金額</label><input type="number" className="fi" value={editing.contractAmount||''} onChange={e=>setEditing((p:any)=>({...p,contractAmount:parseFloat(e.target.value)||null}))} /></div>
           </div>
