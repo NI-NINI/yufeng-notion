@@ -6,12 +6,12 @@ import Sidebar from '@/components/Sidebar'
 const TYPES = ['都更前期','都更','法拍','一般件','法院案','買賣','地上權','代金','國產署','合理市場租金參考','容積代金試算','公允價值評估','瑕疵','捷運聯開','危老','權利變換','其他']
 const STATUSES = ['未啟動','進行中','等待中','擱淺','覆核中','已完成']
 const PRIORITIES = ['特急','優先','普通','緩慢']
-const TEAMS = ['妮組','文組','未派']
-// 你現有DB承辦人是全名 select，前端顯示簡稱
-const ASSIGNEES: Record<string,string[]> = { 妮組:['慈妮','紘齊','韋萱','黃慈妮','許紘齊','吳韋萱'], 文組:['文靜','Jenny','旭庭','方謙','徐文靜'], 未派:[] }
-const ALL_ASSIGNEES = ['慈妮','紘齊','韋萱','文靜','Jenny','旭庭','方謙','黃慈妮','徐文靜','吳韋萱','許紘齊']
+const TEAMS = ['妮組','文組','舊案(妮+文)']
+// Notion DB 承辦人是全名 select
+const NOTION_ASSIGNEES = ['許紘齊','吳韋萱','黃慈妮','方謙','郭旭庭','黃湞儀','徐文靜']
+const ALL_ASSIGNEES = NOTION_ASSIGNEES  // filter bar 用
 // 顯示名稱正規化（全名→簡稱）
-const SHORT: Record<string,string> = {'黃慈妮':'慈妮','徐文靜':'文靜','張博宇':'博宇','吳韋萱':'韋萱','許紘齊':'紘齊'}
+const SHORT: Record<string,string> = {'黃慈妮':'慈妮','徐文靜':'文靜','張博宇':'博宇','吳韋萱':'韋萱','許紘齊':'紘齊','郭旭庭':'旭庭','黃湞儀':'湞儀'}
 const displayName = (n:string) => SHORT[n] || n
 const APPRAISERS = ['所長','副所','博宇','慈妮','文靜']
 const LEADING_TYPES = ['領銜','非領銜','不適用']
@@ -34,11 +34,11 @@ const fd = (d:string) => { if(!d) return '—'; const t=new Date(d); return `${t
 const dl = (d:string) => { if(!d) return null; return Math.ceil((new Date(d).getTime()-Date.now())/864e5) }
 
 const emptyCase = () => ({
-  name:'', clientId:'', clientName:'', caseType:'', address:'',
+  caseNumber:'', name:'', clientId:'', clientName:'', caseType:'', address:'',
   team:'妮組', assignees:[] as string[], appraisers:[] as string[],
-  status:'未啟動', priority:'普通', contractAmount:null as number|null,
-  discountRate:100, contractDate:'', assignDate:'', dueDate:'',
-  progressNote:'', documentNotes:'', stuckReason:'',
+  status:'未啟動', isActive:false, isClosed:false,
+  priority:'普通', contractAmount:null as number|null, contractAmountText:'',
+  dueDate:'', progressNote:'', location:'',
   redFlag:false, redFlagNote:'',
   leadingType:'不適用', leadingFee:null as number|null, leadingFeeNote:'',
 })
@@ -127,8 +127,14 @@ function CasesInner() {
     if (!sel) return
     setSaving(true)
     try {
+      const payload = {
+        ...sel,
+        isActive: sel.status === '進行中',
+        isClosed: sel.status === '已完成',
+        contractAmountText: sel.contractAmount != null ? String(sel.contractAmount) : (sel.contractAmountText || ''),
+      }
       await fetch('/api/cases', { method:'PATCH', headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({ id:sel.id, ...sel }) })
+        body:JSON.stringify({ id:sel.id, ...payload }) })
       await loadAll()
       setPanelOpen(false)
     } finally { setSaving(false) }
@@ -137,7 +143,13 @@ function CasesInner() {
   const createNewCase = async () => {
     setSaving(true)
     try {
-      await fetch('/api/cases', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(editing) })
+      const payload = {
+        ...editing,
+        isActive: editing.status === '進行中',
+        isClosed: editing.status === '已完成',
+        contractAmountText: editing.contractAmount != null ? String(editing.contractAmount) : '',
+      }
+      await fetch('/api/cases', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) })
       await loadAll()
       setModalOpen(false)
     } finally { setSaving(false) }
@@ -221,7 +233,7 @@ function CasesInner() {
             <span style={{fontSize:10,fontWeight:700,color:'var(--tx3)',textTransform:'uppercase'}}>承辦</span>
             {ALL_ASSIGNEES.map(a=>(
               <span key={a} className={`tg ${fAssignee===a?'tg-rose':'tg-muted'}`} style={{cursor:'pointer'}}
-                onClick={()=>setFAssignee(fAssignee===a?'':a)}>{a}</span>
+                onClick={()=>setFAssignee(fAssignee===a?'':a)}>{displayName(a)}</span>
             ))}
           </div>
         </div>
@@ -261,7 +273,7 @@ function CasesInner() {
                       <td>
                         <div style={{display:'flex',gap:3}}>
                           {(c.assignees||[]).map((a:string)=>(
-                            <span key={a} className="av" style={{background:uc(a)}}>{a[0]}</span>
+                            <span key={a} className="av" style={{background:uc(displayName(a))}}>{displayName(a)[0]}</span>
                           ))}
                         </div>
                       </td>
@@ -343,13 +355,13 @@ function CasesInner() {
                 <div style={{display:'flex',gap:4,flexWrap:'wrap',alignItems:'center'}}>
                   {(sel.assignees||[]).map((a:string)=>(
                     <span key={a} className="tg tg-rose" style={{cursor:'pointer'}} onClick={()=>setSel((p:any)=>({...p,assignees:p.assignees.filter((x:string)=>x!==a)}))}>
-                      {a} ✕
+                      {displayName(a)} ✕
                     </span>
                   ))}
                   <select className="fi" style={{width:80,padding:'2px 5px',fontSize:11}} value=""
                     onChange={e=>{if(e.target.value)setSel((p:any)=>{ const prev:string[]=p.assignees||[]; return {...p,assignees:prev.includes(e.target.value)?prev:[...prev,e.target.value]} })}}>
                     <option value="">+</option>
-                    {['慈妮','紘齊','韋萱','文靜','Jenny','旭庭','方謙'].filter((a:string)=>!sel.assignees?.includes(a)).map((a:string)=><option key={a}>{a}</option>)}
+                    {NOTION_ASSIGNEES.filter((a:string)=>!sel.assignees?.includes(a)).map((a:string)=><option key={a} value={a}>{displayName(a)}</option>)}
                   </select>
                 </div>
 

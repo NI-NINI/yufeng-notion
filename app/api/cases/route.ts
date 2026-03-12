@@ -5,11 +5,11 @@ export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url)
     const clientId = searchParams.get('clientId')
-    let filter: any = undefined
+    let cases = await fetchAllCases()
+    // 若有 clientId 參數，篩選對應案件（relation 欄位）
     if (clientId) {
-      filter = { filter: { property: '委託單位', relation: { contains: clientId } } }
+      cases = cases.filter(c => c.clientId === clientId)
     }
-    const cases = await fetchAllCases(filter)
     return NextResponse.json(cases)
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })
