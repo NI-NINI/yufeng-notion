@@ -221,7 +221,7 @@ export default function ClientsPage() {
                     </div>
                   )}
 
-                  <div style={{fontSize:11,fontWeight:700,color:'var(--tx3)',marginBottom:8,textTransform:'uppercase',letterSpacing:'.04em'}}>旗下案件</div>
+                  <div style={{fontSize:11,fontWeight:700,color:'var(--tx3)',marginBottom:8,textTransform:'uppercase',letterSpacing:'.04em'}}>案件</div>
                   {!casesMap[c.id] ? (
                     <div style={{fontSize:13,color:'var(--tx3)'}}>載入中…</div>
                   ) : casesMap[c.id].length === 0 ? (

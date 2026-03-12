@@ -46,69 +46,6 @@ const emptyCase = () => ({
   difficulty:null as number|null,
 })
 
-// ── 統計圖組件 ────────────────────────────────────────────────
-function StatsCharts({ cases }: { cases: any[] }) {
-  const activeCases = cases.filter(c => c.caseStatus === '進行中')
-  const people = ['黃慈妮','吳韋萱','許紘齊','方謙','郭旭庭','黃湞儀','徐文靜']
-
-  // 各人進行中案件數
-  const caseCount = people.map(p => ({
-    name: displayName(p),
-    count: activeCases.filter(c => c.assignees?.includes(p)).length,
-    team: ['黃慈妮','吳韋萱','許紘齊'].includes(p) ? '妮組' : '文組',
-  }))
-
-  // 各人負荷量（進行中案件難度加總）
-  const workload = people.map(p => ({
-    name: displayName(p),
-    total: activeCases
-      .filter(c => c.assignees?.includes(p) && c.difficulty != null)
-      .reduce((s:number, c:any) => s + (c.difficulty || 0), 0),
-    team: ['黃慈妮','吳韋萱','許紘齊'].includes(p) ? '妮組' : '文組',
-  }))
-
-  const maxCount = Math.max(...caseCount.map(d=>d.count), 1)
-  const maxWork  = Math.max(...workload.map(d=>d.total), 1)
-
-  const teamColor = (team:string) => team === '妮組' ? '#ec4899' : '#3b82f6'
-
-  return (
-    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,padding:'10px 16px 0',flexShrink:0}}>
-      {/* 進行中案件數 */}
-      <div style={{background:'var(--bgc)',border:'1px solid var(--bd)',borderRadius:8,padding:'10px 14px'}}>
-        <div style={{fontSize:11,fontWeight:700,color:'var(--tx3)',marginBottom:8,textTransform:'uppercase',letterSpacing:'.05em'}}>進行中案件數</div>
-        <div style={{display:'flex',flexDirection:'column',gap:6}}>
-          {caseCount.filter(d=>d.count>0||true).map(d=>(
-            <div key={d.name} style={{display:'flex',alignItems:'center',gap:8}}>
-              <div style={{width:36,fontSize:11,fontWeight:600,color:'var(--tx2)',textAlign:'right',flexShrink:0}}>{d.name}</div>
-              <div style={{flex:1,height:16,background:'var(--bgh)',borderRadius:4,overflow:'hidden'}}>
-                <div style={{height:'100%',width:`${(d.count/maxCount)*100}%`,background:teamColor(d.team),borderRadius:4,transition:'width .3s'}}/>
-              </div>
-              <div style={{width:20,fontSize:12,fontWeight:700,fontFamily:'var(--m)',color:'var(--tx)'}}>{d.count}</div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* 負荷量（難度加總）*/}
-      <div style={{background:'var(--bgc)',border:'1px solid var(--bd)',borderRadius:8,padding:'10px 14px'}}>
-        <div style={{fontSize:11,fontWeight:700,color:'var(--tx3)',marginBottom:8,textTransform:'uppercase',letterSpacing:'.05em'}}>負荷量（進行中難度加總）</div>
-        <div style={{display:'flex',flexDirection:'column',gap:6}}>
-          {workload.map(d=>(
-            <div key={d.name} style={{display:'flex',alignItems:'center',gap:8}}>
-              <div style={{width:36,fontSize:11,fontWeight:600,color:'var(--tx2)',textAlign:'right',flexShrink:0}}>{d.name}</div>
-              <div style={{flex:1,height:16,background:'var(--bgh)',borderRadius:4,overflow:'hidden'}}>
-                <div style={{height:'100%',width:`${maxWork>0?(d.total/maxWork)*100:0}%`,background:d.total>10?'#dc2626':d.total>6?'#d97706':teamColor(d.team),borderRadius:4,transition:'width .3s'}}/>
-              </div>
-              <div style={{width:24,fontSize:12,fontWeight:700,fontFamily:'var(--m)',color:d.total>10?'#dc2626':d.total>6?'#d97706':'var(--tx)'}}>{d.total||'—'}</div>
-            </div>
-          ))}
-        </div>
-        <div style={{marginTop:8,fontSize:10,color:'var(--tx3)'}}>● 紅色 &gt;10｜橙色 &gt;6｜正常以下</div>
-      </div>
-    </div>
-  )
-}
 
 function CasesInner() {
   const searchParams = useSearchParams()
@@ -123,7 +60,6 @@ function CasesInner() {
   const [fTeam, setFTeam] = useState('')
   const [fType, setFType] = useState('')
   const [fAssignee, setFAssignee] = useState('')
-  const [showStats, setShowStats] = useState(true)
   const [selCase, setSelCase] = useState<any|null>(null)
   const [panelOpen, setPanelOpen] = useState(false)
   const [modalOpen, setModalOpen] = useState(false)
@@ -271,16 +207,14 @@ function CasesInner() {
         <div className="page-hd">
           <h1>案件管理</h1>
           <div className="page-hd-r">
-            <button className="btn btn-sm" style={{fontSize:11}} onClick={()=>setShowStats(v=>!v)}>{showStats?'隱藏統計':'顯示統計'}</button>
             <input className="search-input" placeholder="搜尋案件…" value={search} onChange={e=>setSearch(e.target.value)} />
             <button className="btn btn-primary btn-sm" onClick={openNew}>＋ 新增</button>
           </div>
         </div>
 
         {/* 統計圖 */}
-        {showStats && !loading && <StatsCharts cases={cases} />}
 
-        <div className="filter-bar" style={{marginTop:showStats?8:0}}>
+        <div className="filter-bar" style={{marginTop:0}}>
           <div className="filter-chip">狀態<select value={fStatus} onChange={e=>setFStatus(e.target.value)}><option value="">全部</option>{STATUSES.map(s=><option key={s}>{s}</option>)}</select></div>
           <div className="filter-chip">組別<select value={fTeam} onChange={e=>setFTeam(e.target.value)}><option value="">全部</option>{TEAMS.map(t=><option key={t}>{t}</option>)}</select></div>
           <div className="filter-chip">類型<select value={fType} onChange={e=>setFType(e.target.value)}><option value="">全部</option>{TYPES.map(t=><option key={t}>{t}</option>)}</select></div>
