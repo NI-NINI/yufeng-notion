@@ -234,7 +234,6 @@ export async function fetchAllCases(): Promise<Case_[]> {
     pages.push(...res.results)
     cursor = res.has_more ? (res.next_cursor ?? undefined) : undefined
   } while (cursor)
-<<<<<<< HEAD
 
   // 自動回填：若案件委託方 relation 為空，但有 委託單位 文字，則反查客戶 ID 並寫回 Notion
   const backfillPromises: Promise<any>[] = []
@@ -264,8 +263,6 @@ export async function fetchAllCases(): Promise<Case_[]> {
   // 非同步回填，不等待完成（避免拖慢頁面載入）
   Promise.all(backfillPromises).catch(() => {})
 
-=======
->>>>>>> 9d13096cbc1007c62ddf3d38fa1e01839ff36777
   return pages.map(p => toCase(p, clientMap))
 }
 
