@@ -4,7 +4,7 @@ export const notion = new Client({ auth: process.env.NOTION_TOKEN })
 
 export const DB_IDS = {
   clients:  process.env.NOTION_CLIENT_DB_ID!,
-  cases:    process.env.NOTION_CASE_DB_ID || '9828c9d4978c829488f0818ccd196c81',
+  cases:    process.env.NOTION_CASE_DB_ID || '3208c9d4978c8133839ed912025fd2e0',
   payments: process.env.NOTION_PAYMENT_DB_ID!,
 }
 
@@ -21,44 +21,39 @@ export interface Client_ {
   isGiftTarget: boolean; clientType: string; notes: string; createdAt: string
 }
 
+// 新 DB 對應的案件型別
 export interface Case_ {
   id: string
-  caseNumber: string
-  name: string
-  clientId: string
-  clientName: string
-  clientNameText: string
-  caseType: string
-  propertyType: string
-  address: string
-  contractAmountText: string
+  caseNumber: string       // 案件編號 (title)
+  name: string             // 案件簡稱 (rich_text)
+  clientId: string         // 無 relation，留空
+  clientName: string       // 委託單位 (rich_text)
+  caseType: string         // 估價目的 (rich_text)
+  address: string          // 標的物地址 (rich_text)
+  contractAmountText: string // 案件金額 (rich_text)
   contractAmount: number | null
-  team: string
-  assignees: string[]
-  appraisers: string[]
-  caseStatus: string
-  priority: string
-  isActive: boolean
-  isClosed: boolean
-  dueDate: string
-  actualDueDate: string
-  deadline: string
-  progressNote: string
-  location: string
+  team: string             // 組別 (select): 妮組/文組/舊案(妮+文)
+  assignees: string[]      // 承辦人 (select → 陣列)
+  appraisers: string[]     // 簽證(負責)估價師 (multi_select)
+  status: string           // 由 checkbox 推算
+  isActive: boolean        // 是否進行中
+  isClosed: boolean        // 是否已結案
+  dueDate: string          // 出件期限
+  progressNote: string     // 進度
+  location: string         // 地點
   redFlag: boolean
   redFlagNote: string
-  difficulty: number | null
-  workload: number | null
-  qualityScore: number | null
   updatedAt: string
-  // backward compat
-  status: string
+  // 向後相容欄位（讓前端不需要大改）
   assignDate: string
+  priority: string
+  difficulty: string
   stuckReason: string
   documentNotes: string
   discountRate: number | null
   contractDate: string
   plannedDate: string
+  qualityScore: number | null
   progressNoteExtra: string
   quarter: string
   bonusQuarter: string
@@ -77,24 +72,32 @@ export interface Payment_ {
 }
 
 // ── helpers ───────────────────────────────────────────────────
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const prop = (p: any, k: string) => p.properties?.[k]
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function text(page: any, key: string): string {
   const p = prop(page, key)
   if (!p) return ''
-  if (p.type === 'title')        return p.title?.map((t: any) => t.plain_text).join('') ?? ''
-  if (p.type === 'rich_text')    return p.rich_text?.map((t: any) => t.plain_text).join('') ?? ''
+  if (p.type === 'title')      return p.title?.map((t: any) => t.plain_text).join('') ?? ''
+  if (p.type === 'rich_text')  return p.rich_text?.map((t: any) => t.plain_text).join('') ?? ''
   if (p.type === 'phone_number') return p.phone_number ?? ''
-  if (p.type === 'email')        return p.email ?? ''
+  if (p.type === 'email')      return p.email ?? ''
   return ''
 }
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const sel  = (page: any, key: string): string => prop(page, key)?.select?.name ?? ''
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const msel = (page: any, key: string): string[] => prop(page, key)?.multi_select?.map((o: any) => o.name) ?? []
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const num  = (page: any, key: string): number | null => prop(page, key)?.number ?? null
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const dt   = (page: any, key: string): string => prop(page, key)?.date?.start ?? ''
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const chk  = (page: any, key: string): boolean => prop(page, key)?.checkbox ?? false
 const rt   = (s: string) => [{ text: { content: s } }]
 
-// ── toClient ──────────────────────────────────────────────────
+// ── toClient ─────────────────────────────────────────────────
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function toClient(page: any): Client_ {
   const giftDragonBoat = chk(page, '端午送禮')
   const giftMidAutumn  = chk(page, '中秋送禮')
@@ -127,56 +130,49 @@ export function toClient(page: any): Client_ {
   }
 }
 
-// ── toCase ────────────────────────────────────────────────────
+// ── toCase ───────────────────────────────────────────────────
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function toCase(page: any, clientMap: Record<string, string> = {}): Case_ {
-  const isActive   = chk(page, '是否進行中')
-  const isClosed   = chk(page, '是否已結案')
-  const caseStatus = sel(page, '案件狀態') || (isClosed ? '已完成' : isActive ? '進行中' : '未開始')
-  const amtText    = text(page, '案件金額')
-  const amtNum     = amtText ? parseFloat(amtText.replace(/[^0-9.]/g, '')) : null
-  const clientIds  = prop(page, '委託方')?.relation?.map((r: any) => r.id) ?? []
-  const clientId   = clientIds[0] ?? ''
-  const clientName = clientIds.map((id: string) => clientMap[id] || '').filter(Boolean).join(', ')
-  const assignees  = msel(page, '承辦人')
+  const isActive = chk(page, '是否進行中')
+  const isClosed = chk(page, '是否已結案')
+  const status   = isClosed ? '已完成' : isActive ? '進行中' : '未啟動'
+  const assigneeSingle = sel(page, '承辦人')
+  const amtText  = text(page, '案件金額')
+  const amtNum   = amtText ? parseFloat(amtText.replace(/[^0-9.]/g, '')) : null
+  // 委託單位：已改為 relation，同時 fallback 到文字
+  const clientIds = prop(page, '委託單位')?.relation?.map((r: any) => r.id) ?? []
+  const clientId = clientIds[0] ?? ''
 
   return {
     id: page.id,
     caseNumber: text(page, '案件編號'),
     name: text(page, '案件簡稱') || text(page, '案件編號'),
     clientId,
-    clientName,
-    clientNameText: text(page, '委託單位'),
-    caseType: sel(page, '估價目的'),
-    propertyType: sel(page, '標的物類型'),
+    clientName: clientIds.map((id: string) => clientMap[id] || '').filter(Boolean).join(', '),
+    caseType: text(page, '估價目的'),
     address: text(page, '標的物地址'),
     contractAmountText: amtText,
     contractAmount: amtNum && !isNaN(amtNum) ? amtNum : null,
     team: sel(page, '組別'),
-    assignees,
+    assignees: assigneeSingle ? [assigneeSingle] : [],
     appraisers: msel(page, '簽證(負責)估價師'),
-    caseStatus,
-    priority: sel(page, '順位'),
-    isActive, isClosed,
-    dueDate: dt(page, '完成期限') || dt(page, '出件期限'),
-    actualDueDate: dt(page, '實際出件日'),
-    deadline: dt(page, '出件期限'),
+    status, isActive, isClosed,
+    dueDate: dt(page, '出件期限'),
     progressNote: text(page, '進度'),
-    location: '',
-    redFlag: chk(page, '注意!'),
+    location: text(page, '地點'),
+    redFlag: chk(page, '業務紅燈'),
     redFlagNote: text(page, '紅燈備註'),
-    difficulty: num(page, '案件難度'),
-    workload: num(page, '負荷值'),
-    qualityScore: num(page, '案件評分'),
     updatedAt: '',
-    status: caseStatus,
-    assignDate: '', stuckReason: '', documentNotes: '',
-    discountRate: null, contractDate: '', plannedDate: '',
-    progressNoteExtra: '', quarter: '', bonusQuarter: '',
+    // 向後相容空值
+    assignDate: '', priority: '', difficulty: '', stuckReason: '',
+    documentNotes: '', discountRate: null, contractDate: '', plannedDate: '',
+    qualityScore: null, progressNoteExtra: '', quarter: '', bonusQuarter: '',
     year: '', bonus25: null, bonus15: null, bonus3: null, difficultyWeight: null,
   }
 }
 
-// ── toPayment ─────────────────────────────────────────────────
+// ── toPayment ────────────────────────────────────────────────
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function toPayment(page: any, caseMap: Record<string, string> = {}, caseDetailMap: Record<string, Case_> = {}): Payment_ {
   const caseId = prop(page, '案件')?.relation?.[0]?.id ?? ''
   const cd = caseDetailMap[caseId]
@@ -200,7 +196,7 @@ export function toPayment(page: any, caseMap: Record<string, string> = {}, caseD
   }
 }
 
-// ── 查詢 ──────────────────────────────────────────────────────
+// ── 查詢 ─────────────────────────────────────────────────────
 export async function fetchAllClients(): Promise<Client_[]> {
   const pages: any[] = []
   let cursor: string | undefined
@@ -217,13 +213,8 @@ export async function fetchAllClients(): Promise<Client_[]> {
 
 export async function fetchAllCases(): Promise<Case_[]> {
   const clients = await fetchAllClients()
-  const clientMap: Record<string, string> = {}     // id → name
-  const clientNameMap: Record<string, string> = {} // name → id（用於反查）
-  clients.forEach(c => {
-    clientMap[c.id] = c.name
-    clientNameMap[c.name.trim()] = c.id
-  })
-
+  const clientMap: Record<string, string> = {}
+  clients.forEach(c => { clientMap[c.id] = c.name })
   const pages: any[] = []
   let cursor: string | undefined
   do {
@@ -234,39 +225,11 @@ export async function fetchAllCases(): Promise<Case_[]> {
     pages.push(...res.results)
     cursor = res.has_more ? (res.next_cursor ?? undefined) : undefined
   } while (cursor)
-<<<<<<< HEAD
-
-  // 自動回填：若案件委託方 relation 為空，但有 委託單位 文字，則反查客戶 ID 並寫回 Notion
-  const backfillPromises: Promise<any>[] = []
-  for (const page of pages) {
-    const hasRelation = (prop(page, '委託方')?.relation?.length ?? 0) > 0
-    if (!hasRelation) {
-      const unitText = (text(page, '委託單位') ?? '').trim()
-      if (unitText) {
-        // 完全比對或包含比對
-        const clientId = clientNameMap[unitText]
-          ?? Object.entries(clientNameMap).find(([name]) =>
-              name.includes(unitText) || unitText.includes(name))?.[1]
-        if (clientId) {
-          backfillPromises.push(
-            notion.pages.update({
-              page_id: page.id,
-              properties: { '委託方': { relation: [{ id: clientId }] } },
-            }).catch(() => {}) // 靜默失敗，不影響正常載入
-          )
-          // 更新 in-memory 讓這次回傳就有正確的 clientId
-          if (!page.properties['委託方']) page.properties['委託方'] = { relation: [] }
-          page.properties['委託方'].relation = [{ id: clientId }]
-        }
-      }
-    }
-  }
-  // 非同步回填，不等待完成（避免拖慢頁面載入）
-  Promise.all(backfillPromises).catch(() => {})
-
-=======
->>>>>>> 9d13096cbc1007c62ddf3d38fa1e01839ff36777
-  return pages.map(p => toCase(p, clientMap))
+  return pages.map(p => {
+    const c = toCase(p)
+    if (c.clientId && !c.clientName) c.clientName = clientMap[c.clientId] ?? ''
+    return c
+  })
 }
 
 export async function fetchAllPayments(): Promise<Payment_[]> {
@@ -357,53 +320,41 @@ export async function createCase(data: Partial<Case_>) {
     '案件編號': { title: rt(data.caseNumber ?? data.name ?? '') },
   }
   if (data.name)               props['案件簡稱'] = { rich_text: rt(data.name) }
-  if (data.clientId)           props['委託方'] = { relation: [{ id: data.clientId }] }
-  if (data.clientNameText)     props['委託單位'] = { rich_text: rt(data.clientNameText) }
-  if (data.caseType)           props['估價目的'] = { select: { name: data.caseType } }
-  if (data.propertyType)       props['標的物類型'] = { select: { name: data.propertyType } }
+  if (data.clientId)           props['委託單位'] = { relation: [{ id: data.clientId }] }
+  if (data.caseType)           props['估價目的'] = { rich_text: rt(data.caseType) }
   if (data.address)            props['標的物地址'] = { rich_text: rt(data.address) }
   if (data.contractAmountText) props['案件金額'] = { rich_text: rt(data.contractAmountText) }
   if (data.team)               props['組別'] = { select: { name: data.team } }
-  if (data.assignees?.length)  props['承辦人'] = { multi_select: data.assignees.map(n => ({ name: n })) }
+  if (data.assignees?.length)  props['承辦人'] = { select: { name: data.assignees[0] } }
   if (data.appraisers?.length) props['簽證(負責)估價師'] = { multi_select: data.appraisers.map(n => ({ name: n })) }
-  if (data.caseStatus)         props['案件狀態'] = { select: { name: data.caseStatus } }
-  if (data.priority)           props['順位'] = { select: { name: data.priority } }
   if (data.isActive !== undefined) props['是否進行中'] = { checkbox: data.isActive }
   if (data.isClosed !== undefined) props['是否已結案'] = { checkbox: data.isClosed }
-  if (data.dueDate)            props['完成期限'] = { date: { start: data.dueDate } }
-  if (data.actualDueDate)      props['實際出件日'] = { date: { start: data.actualDueDate } }
-  if (data.deadline)           props['出件期限'] = { date: { start: data.deadline } }
+  if (data.dueDate)            props['出件期限'] = { date: { start: data.dueDate } }
   if (data.progressNote)       props['進度'] = { rich_text: rt(data.progressNote) }
-  if (data.redFlag !== undefined)  props['注意!'] = { checkbox: data.redFlag }
+  if (data.location)           props['地點'] = { rich_text: rt(data.location) }
+  if (data.redFlag !== undefined) props['業務紅燈'] = { checkbox: data.redFlag }
   if (data.redFlagNote)        props['紅燈備註'] = { rich_text: rt(data.redFlagNote) }
-  if (data.difficulty != null) props['案件難度'] = { number: data.difficulty }
   return notion.pages.create({ parent: { database_id: DB_IDS.cases }, properties: props })
 }
 
 export async function updateCase(id: string, data: Partial<Case_>) {
   const props: any = {}
-  if (data.caseNumber !== undefined)         props['案件編號'] = { title: rt(data.caseNumber) }
-  if (data.name !== undefined)               props['案件簡稱'] = { rich_text: rt(data.name) }
-  if (data.clientId !== undefined)           props['委託方'] = { relation: data.clientId ? [{ id: data.clientId }] : [] }
-  if (data.clientNameText !== undefined)     props['委託單位'] = { rich_text: rt(data.clientNameText ?? '') }
-  if (data.caseType !== undefined)           props['估價目的'] = { select: data.caseType ? { name: data.caseType } : null }
-  if (data.propertyType !== undefined)       props['標的物類型'] = { select: data.propertyType ? { name: data.propertyType } : null }
-  if (data.address !== undefined)            props['標的物地址'] = { rich_text: rt(data.address) }
+  if (data.caseNumber !== undefined)       props['案件編號'] = { title: rt(data.caseNumber) }
+  if (data.name !== undefined)             props['案件簡稱'] = { rich_text: rt(data.name) }
+  if (data.clientId !== undefined)         props['委託單位'] = { relation: data.clientId ? [{ id: data.clientId }] : [] }
+  if (data.caseType !== undefined)         props['估價目的'] = { rich_text: rt(data.caseType) }
+  if (data.address !== undefined)          props['標的物地址'] = { rich_text: rt(data.address) }
   if (data.contractAmountText !== undefined) props['案件金額'] = { rich_text: rt(data.contractAmountText) }
-  if (data.team !== undefined)               props['組別'] = { select: data.team ? { name: data.team } : null }
-  if (data.assignees !== undefined)          props['承辦人'] = { multi_select: (data.assignees ?? []).map(n => ({ name: n })) }
-  if (data.appraisers !== undefined)         props['簽證(負責)估價師'] = { multi_select: data.appraisers.map(n => ({ name: n })) }
-  if (data.caseStatus !== undefined)         props['案件狀態'] = { select: data.caseStatus ? { name: data.caseStatus } : null }
-  if (data.priority !== undefined)           props['順位'] = { select: data.priority ? { name: data.priority } : null }
-  if (data.isActive !== undefined)           props['是否進行中'] = { checkbox: data.isActive }
-  if (data.isClosed !== undefined)           props['是否已結案'] = { checkbox: data.isClosed }
-  if (data.dueDate !== undefined)            props['完成期限'] = { date: data.dueDate ? { start: data.dueDate } : null }
-  if (data.actualDueDate !== undefined)      props['實際出件日'] = { date: data.actualDueDate ? { start: data.actualDueDate } : null }
-  if (data.deadline !== undefined)           props['出件期限'] = { date: data.deadline ? { start: data.deadline } : null }
-  if (data.progressNote !== undefined)       props['進度'] = { rich_text: rt(data.progressNote) }
-  if (data.redFlag !== undefined)            props['注意!'] = { checkbox: data.redFlag }
-  if (data.redFlagNote !== undefined)        props['紅燈備註'] = { rich_text: rt(data.redFlagNote ?? '') }
-  if (data.difficulty !== undefined)         props['案件難度'] = { number: data.difficulty }
+  if (data.team !== undefined)             props['組別'] = { select: data.team ? { name: data.team } : null }
+  if (data.assignees !== undefined)        props['承辦人'] = { select: data.assignees?.length ? { name: data.assignees[0] } : null }
+  if (data.appraisers !== undefined)       props['簽證(負責)估價師'] = { multi_select: data.appraisers.map(n => ({ name: n })) }
+  if (data.isActive !== undefined)         props['是否進行中'] = { checkbox: data.isActive }
+  if (data.isClosed !== undefined)         props['是否已結案'] = { checkbox: data.isClosed }
+  if (data.dueDate !== undefined)          props['出件期限'] = { date: data.dueDate ? { start: data.dueDate } : null }
+  if (data.progressNote !== undefined)     props['進度'] = { rich_text: rt(data.progressNote) }
+  if (data.location !== undefined)         props['地點'] = { rich_text: rt(data.location) }
+  if (data.redFlag !== undefined)          props['業務紅燈'] = { checkbox: data.redFlag }
+  if (data.redFlagNote !== undefined)      props['紅燈備註'] = { rich_text: rt(data.redFlagNote) }
   return notion.pages.update({ page_id: id, properties: props })
 }
 
