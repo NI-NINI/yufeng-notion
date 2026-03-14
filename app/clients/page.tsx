@@ -10,8 +10,6 @@ const GIFTS = [
 ] as const
 type GiftField = 'giftMidAutumn'|'giftYearEnd'|'giftCalendar'
 type GiftFilterKey = 'GiftMidAutumn'|'GiftYearEnd'|'GiftCalendar'
-
-interface Contact {
   name:string; dept:string; title:string
   phone:string; ext:string; mobile:string
   email:string; birthday:string; notes:string
@@ -87,30 +85,7 @@ const ContactGiftBadges=({ct}:{ct:Contact})=>(
   </div>
 )
 
-// 送禮名單（每個窗口各自）
-interface GiftRow{clientName:string;clientNo:number|null;contactName:string;dept:string;title:string;phone:string;mobile:string;email:string}
-function buildGiftRows(clients:Client[],key:GiftFilterKey):GiftRow[]{
-  const rows:GiftRow[]=[]
-  for(const c of clients){
-    for(let i=1;i<=4;i++){
-      if((c as any)[`contact${i}${key}`]){
-        rows.push({
-          clientName:c.name, clientNo:c.clientNo,
-          contactName:(c as any)[`contact${i}Name`]||'',
-          dept:(c as any)[`contact${i}Dept`]||'',
-          title:(c as any)[`contact${i}Title`]||'',
-          phone:(c as any)[`contact${i}Phone`]||'',
-          mobile:(c as any)[`contact${i}Mobile`]||'',
-          email:(c as any)[`contact${i}Email`]||'',
-        })
-      }
-    }
-  }
-  return rows
-}
-
 export default function ClientsPage(){
-  const [giftTab,setGiftTab]=useState<GiftFilterKey|null>(null)
   const [clients,setClients]=useState<Client[]>([])
   const [loading,setLoading]=useState(true)
   const [search,setSearch]=useState('')
@@ -196,8 +171,6 @@ export default function ClientsPage(){
     return true
   })
 
-  const giftRows=giftTab?buildGiftRows(filtered,giftTab):[]
-
   return(
     <div className="app">
       <Sidebar/>
@@ -228,58 +201,7 @@ export default function ClientsPage(){
               <option value="GiftCalendar">桌曆年曆</option>
             </select>
           </div>
-          <div style={{marginLeft:'auto',display:'flex',gap:4,alignItems:'center'}}>
-            <span style={{fontSize:11,color:'var(--tx3)'}}>送禮名單：</span>
-            {(['GiftMidAutumn','GiftYearEnd','GiftCalendar'] as GiftFilterKey[]).map((k,i)=>(
-              <button key={k} onClick={()=>setGiftTab(giftTab===k?null:k)}
-                style={{fontSize:11,padding:'3px 10px',borderRadius:4,border:'1px solid var(--bd)',cursor:'pointer',
-                  background:giftTab===k?'var(--blue)':'var(--bgc)',
-                  color:giftTab===k?'#fff':'var(--tx2)'}}>
-                {['中秋','年節','桌曆'][i]}
-              </button>
-            ))}
-          </div>
         </div>
-
-        {/* 送禮名單展開 */}
-        {giftTab&&(
-          <div style={{borderBottom:'2px solid var(--bd)',background:'var(--bgc)'}}>
-            <div style={{padding:'8px 16px 4px',display:'flex',alignItems:'center',gap:8}}>
-              <span style={{fontSize:12,fontWeight:700,color:'var(--blue)'}}>
-                {giftTab==='GiftMidAutumn'?'🎑 中秋節':giftTab==='GiftYearEnd'?'🧧 年節禮':'📅 桌曆年曆'} 送禮名單
-              </span>
-              <span style={{fontSize:12,color:'var(--tx3)'}}>共 {giftRows.length} 位</span>
-              <button onClick={()=>setGiftTab(null)} style={{marginLeft:'auto',fontSize:11,color:'var(--tx3)',background:'none',border:'none',cursor:'pointer'}}>✕ 收起</button>
-            </div>
-            <div style={{overflowX:'auto',paddingBottom:8}}>
-              <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
-                <thead>
-                  <tr style={{background:'var(--bgh)'}}>
-                    {['委託單位','客戶編號','姓名','部門','職稱','電話','手機','Email'].map(h=>(
-                      <th key={h} style={{padding:'6px 12px',textAlign:'left',fontWeight:700,fontSize:10,color:'var(--tx3)',borderBottom:'1px solid var(--bd)',whiteSpace:'nowrap'}}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {giftRows.length===0
-                    ?<tr><td colSpan={8} style={{padding:'12px 16px',color:'var(--tx3)',fontSize:12}}>（此篩選條件下無送禮名單）</td></tr>
-                    :giftRows.map((g,i)=>(
-                      <tr key={i} style={{borderBottom:'1px solid var(--bd)'}}>
-                        <td style={{padding:'6px 12px',fontWeight:600}}>{g.clientName}</td>
-                        <td style={{padding:'6px 12px',fontFamily:'var(--m)',color:'var(--tx3)',fontSize:11}}>{fmtNo(g.clientNo)}</td>
-                        <td style={{padding:'6px 12px'}}>{g.contactName||'—'}</td>
-                        <td style={{padding:'6px 12px',color:'var(--tx2)'}}>{g.dept||'—'}</td>
-                        <td style={{padding:'6px 12px',color:'var(--tx2)'}}>{g.title||'—'}</td>
-                        <td style={{padding:'6px 12px',fontFamily:'var(--m)'}}>{g.phone||'—'}</td>
-                        <td style={{padding:'6px 12px',fontFamily:'var(--m)'}}>{g.mobile||'—'}</td>
-                        <td style={{padding:'6px 12px',color:'var(--blue)',fontSize:11}}>{g.email||'—'}</td>
-                      </tr>
-                    ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
 
         <div className="stat-bar"><span>共 <b>{filtered.length}</b> 家委託單位</span></div>
 
