@@ -10,6 +10,8 @@ const GIFTS = [
 ] as const
 type GiftField = 'giftMidAutumn'|'giftYearEnd'|'giftCalendar'
 type GiftFilterKey = 'GiftMidAutumn'|'GiftYearEnd'|'GiftCalendar'
+
+interface Contact {
   name:string; dept:string; title:string
   phone:string; ext:string; mobile:string
   email:string; birthday:string; notes:string
