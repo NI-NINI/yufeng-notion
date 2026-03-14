@@ -74,7 +74,7 @@ export default function ReceiptsPage() {
   const searchResults = useMemo(() => {
     if (!search.trim()) return []
     if (searchMode === 'client') {
-      const clients = [...new Set(cases.map(c => c.clientName).filter(Boolean))]
+      const clients = Array.from(new Set(cases.map((c:any) => c.clientName).filter(Boolean))) as string[]
       return clients.filter(n => n.includes(search)).slice(0, 8).map(n => ({ type: 'client', name: n }))
     } else {
       return cases.filter(c => c.name?.includes(search) || c.clientName?.includes(search)).slice(0, 8).map(c => ({ type: 'case', ...c }))
