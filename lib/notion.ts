@@ -332,7 +332,6 @@ export async function createClient(data: Partial<Client_>) {
   if (data.phone) props['公司電話'] = { phone_number: data.phone }
   if (data.fax)   props['傳真'] = { phone_number: data.fax }
   if (data.clientType) props['客戶類型'] = { select: { name: data.clientType } }
-  // 聯絡窗口 1–4
   for (const i of [1,2,3,4] as const) {
     const n = (f: string) => (data as any)[`contact${i}${f}`]
     if (n('Name'))    props[`聯絡窗口${i}_姓名`]  = { rich_text: richText(n('Name')) }
@@ -363,7 +362,6 @@ export async function updateClient(id: string, data: Partial<Client_>) {
   if (data.giftCalendar !== undefined)  props['桌曆年曆'] = { checkbox: data.giftCalendar }
   if (data.clientType !== undefined) props['客戶類型'] = { select: data.clientType ? { name: data.clientType } : null }
   if (data.notes !== undefined)   props['備註'] = { rich_text: richText(data.notes) }
-  // 聯絡窗口 1–4
   for (const i of [1,2,3,4] as const) {
     const n = (f: string) => (data as any)[`contact${i}${f}`]
     if (n('Name') !== undefined)    props[`聯絡窗口${i}_姓名`]  = { rich_text: richText(n('Name') ?? '') }
