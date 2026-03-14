@@ -278,7 +278,7 @@ export async function fetchAllCases(filters?: object): Promise<Case_[]> {
   do {
     const res = await notion.databases.query({
       database_id: DB_IDS.cases, start_cursor: cursor, page_size: 100,
-      sorts: [{ property: '預計交件日', direction: 'ascending' }],
+      sorts: [{ property: '出件期限', direction: 'ascending' }],
       ...(filters ?? {}),
     })
     pages.push(...res.results)
