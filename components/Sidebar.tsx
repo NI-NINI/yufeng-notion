@@ -15,7 +15,8 @@ const nav = [
   ]},
   { href: '/workload',  icon: '◑', label: '負荷分析' },
   { href: '/bonus',     icon: '◈', label: '獎金配發' },
-  { href: '/payments',  icon: '◉', label: '付款管理' },
+  { href: '/receipts',  icon: '◉', label: '收據開立' },
+  { href: '/payments',   icon: '◈', label: '付款管理' },
 ]
 
 export default function Sidebar() {

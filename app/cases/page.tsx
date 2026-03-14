@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState, useRef, Suspense } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useSearchParams, useRouter } from 'next/navigation'
+import Link from 'next/link'
 import Sidebar from '@/components/Sidebar'
 
 const TYPES = ['都更前期','都更','法拍','一般件','法院案','買賣','地上權','代金','國產署','合理市場租金參考','容積代金試算','公允價值評估','瑕疵','捷運聯開','危老','權利變換','其他']
@@ -74,6 +75,7 @@ function subtractWorkdays(dateStr: string, days: number): string {
 
 function CasesInner() {
   const searchParams = useSearchParams()
+  const router = useRouter()
   const highlightId = searchParams.get('highlight')
 
   const [cases, setCases] = useState<any[]>([])
@@ -283,7 +285,7 @@ function CasesInner() {
             <table>
               <thead><tr>
                 <th>#</th><th>類型</th><th>案件名稱</th><th>組別</th>
-                <th>承辦</th><th>狀態</th><th>順位</th><th>交件日</th><th>簽約金額</th>
+                <th>承辦</th><th>狀態</th><th>順位</th><th>交件日</th><th>簽約金額</th><th></th>
               </tr></thead>
               <tbody>
                 {filtered.map(c => {
@@ -317,6 +319,13 @@ function CasesInner() {
                         ) : <span className="muted">—</span>}
                       </td>
                       <td className="mono">{fmt(c.contractAmount)}</td>
+                      <td onClick={e=>e.stopPropagation()}>
+                        <Link href={`/cases/new?id=${c.id}`}
+                          className="btn btn-sm"
+                          style={{fontSize:10,padding:'2px 7px',opacity:.6}}>
+                          編輯
+                        </Link>
+                      </td>
                     </tr>
                   )
                 })}

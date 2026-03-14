@@ -108,6 +108,10 @@ export interface Payment_ {
   invoiceDate: string
   receivedDate: string
   notes: string
+  payStatus: string   // 付款狀態 (請款中/請款中列獎金/已收款)
+  receiptNoteText: string
+  extraBonusAmt: number | null
+  extraBonusTarget: string
 }
 
 // ── helpers ────────────────────────────────────────────────────
@@ -263,6 +267,10 @@ export function toPayment(page: any, caseMap: Record<string, string> = {}, caseD
     invoiceDate: date_(page, '請款日期'),
     receivedDate: date_(page, '收款日期'),
     notes: text(page, '備註'),
+    payStatus: select_(page, '付款狀態'),
+    receiptNoteText: text(page, '收據備註'),
+    extraBonusAmt: num(page, '加碼獎金金額'),
+    extraBonusTarget: text(page, '加碼獎金對象'),
   }
 }
 

@@ -1,6 +1,6 @@
 'use client'
-import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useEffect, useState, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Sidebar from '@/components/Sidebar'
 
 const TYPES = ['都更前期','都更','法拍','一般件','法院案','買賣','地上權','代金','國產署','合理市場租金參考','容積代金試算','公允價值評估','瑕疵','捷運聯開','危老','權利變換','其他']
@@ -45,7 +45,9 @@ const emptyForm = () => ({
 
 const STEPS = ['案件建立', '案件資訊', '報告成果', '費用分期']
 
-export default function CasesNewPage() {
+function CasesNewInner() {
+  const searchParams = useSearchParams()
+  const editId = searchParams.get('id')  // 編輯模式：有 id 就是編輯
   const router = useRouter()
   const [step, setStep] = useState(0)
   const [form, setForm] = useState(emptyForm())
@@ -61,6 +63,31 @@ export default function CasesNewPage() {
   useEffect(() => {
     fetch('/api/clients').then(r => r.json()).then(d => setClients(Array.isArray(d) ? d : []))
   }, [])
+
+  // 編輯模式：載入既有案件資料
+  useEffect(() => {
+    if (!editId) return
+    fetch('/api/cases').then(r => r.json()).then((cases: any[]) => {
+      const c = cases.find((x: any) => x.id === editId)
+      if (!c) return
+      setClientSearch(c.clientName || '')
+      setForm(p => ({
+        ...p,
+        name: c.name || '',
+        clientId: c.clientId || '',
+        clientName: c.clientName || '',
+        caseType: c.caseType || '',
+        team: c.team || '妮組',
+        priority: c.priority || '普通',
+        contractAmount: c.contractAmount ? String(c.contractAmount) : '',
+        leadingType: (c.leadingTypeField as any) || '其他',
+        leadingFee: c.leadingFeeText || '',
+        assignDate: c.assignDate || '',
+        dueDate: c.dueDate || '',
+        importantNote: c.importantNote || '',
+      }))
+    })
+  }, [editId])
 
   const clientOpts = clients.filter(c => c.name.includes(clientSearch))
 
@@ -114,12 +141,20 @@ export default function CasesNewPage() {
       documentNotes: leadingNote,
     }
     try {
-      const res = await fetch('/api/cases', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+      const res = await fetch('/api/cases', {
+        method: editId ? 'PATCH' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(editId ? { id: editId, ...payload } : payload)
+      })
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: '未知錯誤' }))
         alert('建立失敗：' + (err.error || res.status)); return
       }
-      router.push('/cases')
+      if (editId) {
+        router.push('/cases?highlight=' + editId)
+      } else {
+        router.push('/cases')
+      }
     } finally { setSaving(false) }
   }
 
@@ -141,7 +176,7 @@ export default function CasesNewPage() {
       <Sidebar />
       <div className="main">
         <div className="page-hd">
-          <h1>案件建立</h1>
+          <h1>{editId ? '編輯案件' : '案件建立'}</h1>
           <div className="page-hd-r">
             <button className="btn btn-ghost btn-sm" onClick={() => router.push('/cases')}>← 返回查詢</button>
           </div>
@@ -473,4 +508,8 @@ export default function CasesNewPage() {
       </div>
     </div>
   )
+}
+
+export default function CasesNewPage() {
+  return <Suspense fallback={<div className="loading"><div className="spin"/></div>}><CasesNewInner /></Suspense>
 }
