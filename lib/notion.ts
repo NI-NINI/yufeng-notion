@@ -6,7 +6,7 @@ export const notion = new Client({
 
 export const DB_IDS = {
   clients:  process.env.NOTION_CLIENT_DB_ID!,
-  cases:    process.env.NOTION_CASE_DB_ID || '76a8c9d4978c821c92e581f1d403babf',
+  cases:    process.env.NOTION_CASE_DB_ID || '9828c9d4978c829488f0818ccd196c81',
   payments: process.env.NOTION_PAYMENT_DB_ID!,
 }
 
@@ -231,7 +231,7 @@ export function toCase(page: any, clientMap: Record<string, string> = {}): Case_
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function toPayment(page: any, caseMap: Record<string, string> = {}, caseDetailMap: Record<string, Case_> = {}): Payment_ {
-  const caseIds = relation_(page, '案件')
+  const caseIds = relation_(page, '委託案件')
   const caseId = caseIds[0] ?? ''
   const cd = caseDetailMap[caseId]
   return {
