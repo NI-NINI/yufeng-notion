@@ -6,7 +6,7 @@ import Sidebar from '@/components/Sidebar'
 const TYPES = ['都更前期','都更','法拍','一般件','法院案','買賣','地上權','代金','國產署','合理市場租金參考','容積代金試算','公允價值評估','瑕疵','捷運聯開','危老','權利變換','其他']
 const STATUSES = ['未啟動','進行中','等待中','擱淺','覆核中','已完成']
 const PRIORITIES = ['特急','優先','普通','緩慢']
-const TEAMS = ['妮組','文組','舊案(妮+文)']
+const TEAMS = ['妮組','文組','未派']
 // 你現有DB承辦人是全名 select，前端顯示簡稱
 const ASSIGNEES: Record<string,string[]> = { 妮組:['慈妮','紘齊','韋萱','黃慈妮','許紘齊','吳韋萱'], 文組:['文靜','Jenny','旭庭','方謙','徐文靜'], 未派:[] }
 const ALL_ASSIGNEES = ['慈妮','紘齊','韋萱','文靜','Jenny','旭庭','方謙','黃慈妮','徐文靜','吳韋萱','許紘齊']
@@ -34,14 +34,41 @@ const fd = (d:string) => { if(!d) return '—'; const t=new Date(d); return `${t
 const dl = (d:string) => { if(!d) return null; return Math.ceil((new Date(d).getTime()-Date.now())/864e5) }
 
 const emptyCase = () => ({
-  caseNumber:'', name:'', clientId:'', clientName:'', caseType:'', address:'',
+  name:'', clientId:'', clientName:'', caseType:'', address:'',
   team:'妮組', assignees:[] as string[], appraisers:[] as string[],
-  status:'未啟動', isActive:false, isClosed:false,
-  priority:'普通', contractAmount:null as number|null, contractAmountText:'',
-  dueDate:'', progressNote:'', location:'',
+  status:'未啟動', priority:'普通', contractAmount:null as number|null,
+  discountRate:100, contractDate:'', assignDate:'', dueDate:'',
+  progressNote:'', documentNotes:'', stuckReason:'',
   redFlag:false, redFlagNote:'',
   leadingType:'不適用', leadingFee:null as number|null, leadingFeeNote:'',
+  city:'', district:'', landSection:'', landNo:'', buildingNo:'', doorPlate:'',
+  siteVisitDate:'', priceDate:'', staffDoneDate:'', actualDueDate:'',
+  zhCount:false, zhCountQty:'1', zhCountCopies:'1',
+  zhAbstract:false, zhAbstractQty:'1', zhAbstractCopies:'1',
+  zhReport:false, zhReportQty:'1', zhReportCopies:'1',
+  zhDigital:false, zhDigitalQty:'1', zhDigitalCopies:'1',
+  zhCD:false, zhCDQty:'1', zhCDCopies:'1',
+  zhNoSealAbstract:false, zhNoSealAbstractQty:'1', zhNoSealAbstractCopies:'1',
+  enCount:false, enCountQty:'1', enCountCopies:'1',
+  enAbstract:false, enAbstractQty:'1', enAbstractCopies:'1',
+  enReport:false, enReportQty:'1', enReportCopies:'1',
+  enDigital:false, enDigitalQty:'1', enDigitalCopies:'1',
+  enCD:false, enCDQty:'1', enCDCopies:'1',
+  contactIdx:0, contactPhone:'', contactMobile:'',
+  caseNotes:'',
 })
+
+function subtractWorkdays(dateStr: string, days: number): string {
+  if (!dateStr) return ''
+  const d = new Date(dateStr)
+  let count = 0
+  while (count < days) {
+    d.setDate(d.getDate() - 1)
+    const day = d.getDay()
+    if (day !== 0 && day !== 6) count++
+  }
+  return d.toISOString().slice(0, 10)
+}
 
 function CasesInner() {
   const searchParams = useSearchParams()
@@ -68,21 +95,18 @@ function CasesInner() {
   const [clientDD, setClientDD] = useState(false)
   const [newClientSearch, setNewClientSearch] = useState('')
   const [newClientDD, setNewClientDD] = useState(false)
+  const [modalStep, setModalStep] = useState(0)  // 0=案件建立 1=案件資訊 2=報告成果 3=內部檢核
   // payment rows state per case
   const [payRows, setPayRows] = useState<any[]>([])
   const [savingPay, setSavingPay] = useState(false)
-  const [apiError, setApiError] = useState<string>('')
 
   const loadAll = async () => {
     setLoading(true)
-    setApiError('')
     const [cr, clr, pr] = await Promise.all([
       fetch('/api/cases').then(r=>r.json()),
       fetch('/api/clients').then(r=>r.json()),
       fetch('/api/payments').then(r=>r.json()),
     ])
-    if (cr?.error) setApiError('案件API錯誤: ' + cr.error)
-    else if (clr?.error) setApiError('客戶API錯誤: ' + clr.error)
     setCases(Array.isArray(cr)?cr:[])
     setClients(Array.isArray(clr)?clr:[])
     setPayments(Array.isArray(pr)?pr:[])
@@ -120,6 +144,7 @@ function CasesInner() {
   const openNew = () => {
     setEditing(emptyCase())
     setNewClientSearch('')
+    setModalStep(0)
     setModalOpen(true)
   }
 
@@ -127,14 +152,8 @@ function CasesInner() {
     if (!sel) return
     setSaving(true)
     try {
-      const payload = {
-        ...sel,
-        isActive: sel.status === '進行中',
-        isClosed: sel.status === '已完成',
-        contractAmountText: sel.contractAmount != null ? String(sel.contractAmount) : (sel.contractAmountText || ''),
-      }
       await fetch('/api/cases', { method:'PATCH', headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({ id:sel.id, ...payload }) })
+        body:JSON.stringify({ id:sel.id, ...sel }) })
       await loadAll()
       setPanelOpen(false)
     } finally { setSaving(false) }
@@ -143,13 +162,7 @@ function CasesInner() {
   const createNewCase = async () => {
     setSaving(true)
     try {
-      const payload = {
-        ...editing,
-        isActive: editing.status === '進行中',
-        isClosed: editing.status === '已完成',
-        contractAmountText: editing.contractAmount != null ? String(editing.contractAmount) : '',
-      }
-      await fetch('/api/cases', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) })
+      await fetch('/api/cases', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(editing) })
       await loadAll()
       setModalOpen(false)
     } finally { setSaving(false) }
@@ -238,7 +251,6 @@ function CasesInner() {
           </div>
         </div>
 
-        {apiError && <div style={{padding:'8px 16px',background:'#fee2e2',color:'#991b1b',fontSize:13,borderRadius:6,margin:'4px 0 8px'}}>⚠️ {apiError}</div>}
         <div className="stat-bar">
           <span>共 <b>{filtered.length}</b> 案</span>
           <span>進行中 <b>{filtered.filter(c=>c.status==='進行中').length}</b></span>
@@ -598,58 +610,318 @@ function CasesInner() {
       </div>
 
       {/* ─── NEW CASE MODAL ─── */}
+
+      {/* ── 新增案件 Modal（4步驟 Stepper）── */}
       <div className={`mo-overlay ${modalOpen?'open':''}`} onClick={e=>{if(e.target===e.currentTarget)setModalOpen(false)}}>
-        <div className="mo">
-          <div className="mo-hd"><h2>新增案件</h2><button className="dp-close" onClick={()=>setModalOpen(false)}>✕</button></div>
-          <div className="mo-body">
-            <div className="row2">
-              <div className="fg"><label>案件名稱 *</label><input className="fi" value={editing.name||''} onChange={e=>setEditing((p:any)=>({...p,name:e.target.value}))} /></div>
-              <div className="fg"><label>類型</label>
-                <select className="fi" value={editing.caseType||''} onChange={e=>setEditing((p:any)=>({...p,caseType:e.target.value}))}>
-                  <option value="">—</option>{TYPES.map(t=><option key={t}>{t}</option>)}
-                </select>
-              </div>
-            </div>
-            <div className="fg">
-              <label>委託單位</label>
-              <div className="dd-wrap">
-                <input className="fi" value={newClientSearch}
-                  onChange={e=>{setNewClientSearch(e.target.value);setNewClientDD(true)}}
-                  onFocus={()=>setNewClientDD(true)} onBlur={()=>setTimeout(()=>setNewClientDD(false),200)}
-                  placeholder="搜尋客戶名稱…" />
-                {newClientDD && newClientOpts.length>0 && (
-                  <div className="dd">
-                    {newClientOpts.slice(0,8).map((c:any)=>(
-                      <div key={c.id} className="dd-opt" onClick={()=>{
-                        setEditing((p:any)=>({...p,clientId:c.id,clientName:c.name}))
-                        setNewClientSearch(c.name); setNewClientDD(false)
-                      }}>{c.name} <span className="dd-sub">{c.clientType}</span></div>
-                    ))}
+        <div className="mo" style={{maxWidth:640,width:'95vw'}}>
+          <div className="mo-hd">
+            <h2>新增案件</h2>
+            <button className="dp-close" onClick={()=>setModalOpen(false)}>✕</button>
+          </div>
+
+          {/* 步驟指示器 */}
+          <div style={{display:'flex',borderBottom:'1px solid var(--bd)',padding:'0 20px'}}>
+            {['案件建立','案件資訊','報告成果','內部檢核'].map((label,i)=>(
+              <button key={i} onClick={()=>setModalStep(i)} style={{
+                flex:1, padding:'10px 4px', fontSize:12, fontWeight:modalStep===i?700:400,
+                color:modalStep===i?'var(--blue)':modalStep>i?'var(--tx2)':'var(--tx3)',
+                background:'none', border:'none', borderBottom:modalStep===i?'2px solid var(--blue)':'2px solid transparent',
+                cursor:'pointer', transition:'all .15s', display:'flex', alignItems:'center', justifyContent:'center', gap:5,
+              }}>
+                <span style={{
+                  width:18, height:18, borderRadius:'50%', fontSize:10, fontWeight:700,
+                  display:'flex', alignItems:'center', justifyContent:'center',
+                  background:modalStep>i?'var(--blue)':modalStep===i?'var(--blue)':'var(--bd)',
+                  color:'#fff',
+                }}>{modalStep>i?'✓':i+1}</span>
+                {label}
+              </button>
+            ))}
+          </div>
+
+          <div className="mo-body" style={{maxHeight:'62vh',overflowY:'auto'}}>
+
+            {/* ──── STEP 0：案件建立 ──── */}
+            {modalStep===0&&(
+              <div style={{display:'flex',flexDirection:'column',gap:12}}>
+                {/* 委託單位 */}
+                <div className="fg">
+                  <label>委託單位 *</label>
+                  <div className="dd-wrap">
+                    <input className="fi" value={newClientSearch}
+                      onChange={e=>{setNewClientSearch(e.target.value);setNewClientDD(true);setEditing((p:any)=>({...p,clientId:'',clientName:'',contactIdx:0,contactPhone:'',contactMobile:''}))}}
+                      onFocus={()=>setNewClientDD(true)} onBlur={()=>setTimeout(()=>setNewClientDD(false),200)}
+                      placeholder="搜尋客戶名稱…" />
+                    {newClientDD && newClientOpts.length>0 && (
+                      <div className="dd">
+                        {newClientOpts.slice(0,8).map((c:any)=>(
+                          <div key={c.id} className="dd-opt" onClick={()=>{
+                            setEditing((p:any)=>({...p,clientId:c.id,clientName:c.name,contactIdx:0,contactPhone:'',contactMobile:''}))
+                            setNewClientSearch(c.name); setNewClientDD(false)
+                          }}>{c.name} <span className="dd-sub">{c.clientType}</span></div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* 選擇窗口（連動委託單位） */}
+                {editing.clientId&&(()=>{
+                  const client = clients.find((c:any)=>c.id===editing.clientId)
+                  if(!client) return null
+                  const ctList = [1,2,3,4].map(i=>({
+                    idx:i-1,
+                    name:(client as any)[`contact${i}Name`]||'',
+                    title:(client as any)[`contact${i}Title`]||'',
+                    phone:(client as any)[`contact${i}Phone`]||'',
+                    mobile:(client as any)[`contact${i}Mobile`]||'',
+                  })).filter(ct=>ct.name)
+                  if(!ctList.length) return null
+                  return (
+                    <div className="fg">
+                      <label>選擇承辦窗口</label>
+                      <div style={{display:'flex',flexDirection:'column',gap:4}}>
+                        {ctList.map((ct,i)=>(
+                          <label key={i} style={{
+                            display:'flex',alignItems:'center',gap:10,
+                            padding:'8px 10px',borderRadius:6,cursor:'pointer',
+                            border:`1px solid ${editing.contactIdx===ct.idx?'var(--blue)':'var(--bd)'}`,
+                            background:editing.contactIdx===ct.idx?'color-mix(in srgb, var(--blue) 8%, transparent)':'var(--bgc)',
+                          }}>
+                            <input type="radio" style={{accentColor:'var(--blue)'}}
+                              checked={editing.contactIdx===ct.idx}
+                              onChange={()=>setEditing((p:any)=>({...p,contactIdx:ct.idx,contactPhone:ct.phone,contactMobile:ct.mobile}))}
+                            />
+                            <span style={{fontWeight:600,fontSize:13}}>{ct.name}</span>
+                            {ct.title&&<span style={{fontSize:11,color:'var(--tx3)'}}>{ct.title}</span>}
+                            {(ct.phone||ct.mobile)&&(
+                              <span style={{fontSize:11,fontFamily:'var(--m)',color:'var(--tx2)',marginLeft:'auto'}}>
+                                {ct.phone||ct.mobile}
+                              </span>
+                            )}
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  )
+                })()}
+
+                {/* 窗口電話/手機自動顯示 */}
+                {(editing.contactPhone||editing.contactMobile)&&(
+                  <div style={{display:'flex',gap:8}}>
+                    {editing.contactPhone&&(
+                      <div className="fg" style={{flex:1}}>
+                        <label style={{color:'var(--tx3)'}}>電話（自動帶入）</label>
+                        <div className="fi" style={{background:'var(--bgh)',color:'var(--tx2)',fontFamily:'var(--m)'}}>{editing.contactPhone}</div>
+                      </div>
+                    )}
+                    {editing.contactMobile&&(
+                      <div className="fg" style={{flex:1}}>
+                        <label style={{color:'var(--tx3)'}}>手機（自動帶入）</label>
+                        <div className="fi" style={{background:'var(--bgh)',color:'var(--tx2)',fontFamily:'var(--m)'}}>{editing.contactMobile}</div>
+                      </div>
+                    )}
                   </div>
                 )}
+
+                {/* 組別 + 順位 */}
+                <div className="row2">
+                  <div className="fg"><label>組別</label>
+                    <select className="fi" value={editing.team||'妮組'} onChange={e=>setEditing((p:any)=>({...p,team:e.target.value,assignees:[]}))}>
+                      {TEAMS.map(t=><option key={t}>{t}</option>)}
+                    </select>
+                  </div>
+                  <div className="fg"><label>順位</label>
+                    <select className="fi" value={editing.priority||'普通'} onChange={e=>setEditing((p:any)=>({...p,priority:e.target.value}))}>
+                      {PRIORITIES.map(p=><option key={p}>{p}</option>)}
+                    </select>
+                  </div>
+                </div>
               </div>
-            </div>
-            <div className="row2">
-              <div className="fg"><label>組別</label>
-                <select className="fi" value={editing.team||'妮組'} onChange={e=>setEditing((p:any)=>({...p,team:e.target.value,assignees:[]}))}>
-                  {TEAMS.map(t=><option key={t}>{t}</option>)}
-                </select>
+            )}
+
+            {/* ──── STEP 1：案件資訊 ──── */}
+            {modalStep===1&&(
+              <div style={{display:'flex',flexDirection:'column',gap:12}}>
+                <div className="row2">
+                  <div className="fg"><label>案件名稱 *</label><input className="fi" value={editing.name||''} onChange={e=>setEditing((p:any)=>({...p,name:e.target.value}))} /></div>
+                  <div className="fg"><label>案件類型</label>
+                    <select className="fi" value={editing.caseType||''} onChange={e=>setEditing((p:any)=>({...p,caseType:e.target.value}))}>
+                      <option value="">—</option>{TYPES.map(t=><option key={t}>{t}</option>)}
+                    </select>
+                  </div>
+                </div>
+
+                {/* 勘估資訊 */}
+                <div style={{borderTop:'1px solid var(--bd)',paddingTop:10}}>
+                  <div style={{fontSize:11,fontWeight:700,color:'var(--tx3)',textTransform:'uppercase',letterSpacing:'.05em',marginBottom:8}}>勘估資訊</div>
+                  <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:8}}>
+                    <div className="fg"><label>縣市</label><input className="fi" value={editing.city||''} onChange={e=>setEditing((p:any)=>({...p,city:e.target.value}))} placeholder="例：台北市" /></div>
+                    <div className="fg"><label>區域</label><input className="fi" value={editing.district||''} onChange={e=>setEditing((p:any)=>({...p,district:e.target.value}))} placeholder="例：信義區" /></div>
+                  </div>
+                  <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:8}}>
+                    <div className="fg"><label>地段</label><input className="fi" value={editing.landSection||''} onChange={e=>setEditing((p:any)=>({...p,landSection:e.target.value}))} placeholder="例：信義段" /></div>
+                    <div className="fg"><label>地號</label><input className="fi" value={editing.landNo||''} onChange={e=>setEditing((p:any)=>({...p,landNo:e.target.value}))} placeholder="例：123-456" /></div>
+                  </div>
+                  <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+                    <div className="fg"><label>建號</label><input className="fi" value={editing.buildingNo||''} onChange={e=>setEditing((p:any)=>({...p,buildingNo:e.target.value}))} /></div>
+                    <div className="fg"><label>門牌</label><input className="fi" value={editing.doorPlate||''} onChange={e=>setEditing((p:any)=>({...p,doorPlate:e.target.value}))} placeholder="例：信義路5段7號" /></div>
+                  </div>
+                </div>
               </div>
-              <div className="fg"><label>順位</label>
-                <select className="fi" value={editing.priority||'普通'} onChange={e=>setEditing((p:any)=>({...p,priority:e.target.value}))}>
-                  {PRIORITIES.map(p=><option key={p}>{p}</option>)}
-                </select>
+            )}
+
+            {/* ──── STEP 2：報告成果 ──── */}
+            {modalStep===2&&(()=>{
+              const SubRow = ({label,ck,setck,qty,setqty,cop,setcop}:any) => (
+                <div style={{display:'grid',gridTemplateColumns:'24px 1fr 80px 80px',gap:8,alignItems:'center',marginBottom:6}}>
+                  <input type="checkbox" checked={ck} onChange={e=>setck(e.target.checked)} style={{accentColor:'var(--blue)',width:14,height:14}} />
+                  <span style={{fontSize:12,color:ck?'var(--tx)':'var(--tx3)'}}>{label}</span>
+                  <input className="fi" type="number" min="1" placeholder="式" disabled={!ck}
+                    value={qty} onChange={e=>setqty(e.target.value)}
+                    style={{padding:'4px 6px',fontSize:12,opacity:ck?1:0.4}} />
+                  <input className="fi" type="number" min="1" placeholder="份" disabled={!ck}
+                    value={cop} onChange={e=>setcop(e.target.value)}
+                    style={{padding:'4px 6px',fontSize:12,opacity:ck?1:0.4}} />
+                </div>
+              )
+              const u = (field:string) => (v:any) => setEditing((p:any)=>({...p,[field]:v}))
+              return (
+                <div style={{display:'flex',flexDirection:'column',gap:14}}>
+                  {/* 繳交資訊 */}
+                  <div>
+                    <div style={{fontSize:11,fontWeight:700,color:'var(--tx3)',textTransform:'uppercase',letterSpacing:'.05em',marginBottom:8}}>繳交資訊</div>
+                    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+                      {/* 中文 */}
+                      <div>
+                        <div style={{fontSize:12,fontWeight:600,marginBottom:6,color:'var(--tx2)'}}>中文</div>
+                        <div style={{display:'grid',gridTemplateColumns:'24px 1fr 80px 80px',gap:8,marginBottom:4}}>
+                          <span/><span style={{fontSize:10,color:'var(--tx3)',fontWeight:700}}>項目</span>
+                          <span style={{fontSize:10,color:'var(--tx3)',fontWeight:700}}>式</span>
+                          <span style={{fontSize:10,color:'var(--tx3)',fontWeight:700}}>份</span>
+                        </div>
+                        <SubRow label="數字" ck={editing.zhCount} setck={u('zhCount')} qty={editing.zhCountQty} setqty={u('zhCountQty')} cop={editing.zhCountCopies} setcop={u('zhCountCopies')} />
+                        <SubRow label="摘要" ck={editing.zhAbstract} setck={u('zhAbstract')} qty={editing.zhAbstractQty} setqty={u('zhAbstractQty')} cop={editing.zhAbstractCopies} setcop={u('zhAbstractCopies')} />
+                        <SubRow label="報告書" ck={editing.zhReport} setck={u('zhReport')} qty={editing.zhReportQty} setqty={u('zhReportQty')} cop={editing.zhReportCopies} setcop={u('zhReportCopies')} />
+                        <SubRow label="電子檔" ck={editing.zhDigital} setck={u('zhDigital')} qty={editing.zhDigitalQty} setqty={u('zhDigitalQty')} cop={editing.zhDigitalCopies} setcop={u('zhDigitalCopies')} />
+                        <SubRow label="光碟" ck={editing.zhCD} setck={u('zhCD')} qty={editing.zhCDQty} setqty={u('zhCDQty')} cop={editing.zhCDCopies} setcop={u('zhCDCopies')} />
+                        <SubRow label="免簽證摘要" ck={editing.zhNoSealAbstract} setck={u('zhNoSealAbstract')} qty={editing.zhNoSealAbstractQty} setqty={u('zhNoSealAbstractQty')} cop={editing.zhNoSealAbstractCopies} setcop={u('zhNoSealAbstractCopies')} />
+                      </div>
+                      {/* 英文 */}
+                      <div>
+                        <div style={{fontSize:12,fontWeight:600,marginBottom:6,color:'var(--tx2)'}}>英文</div>
+                        <div style={{display:'grid',gridTemplateColumns:'24px 1fr 80px 80px',gap:8,marginBottom:4}}>
+                          <span/><span style={{fontSize:10,color:'var(--tx3)',fontWeight:700}}>項目</span>
+                          <span style={{fontSize:10,color:'var(--tx3)',fontWeight:700}}>式</span>
+                          <span style={{fontSize:10,color:'var(--tx3)',fontWeight:700}}>份</span>
+                        </div>
+                        <SubRow label="數字" ck={editing.enCount} setck={u('enCount')} qty={editing.enCountQty} setqty={u('enCountQty')} cop={editing.enCountCopies} setcop={u('enCountCopies')} />
+                        <SubRow label="摘要" ck={editing.enAbstract} setck={u('enAbstract')} qty={editing.enAbstractQty} setqty={u('enAbstractQty')} cop={editing.enAbstractCopies} setcop={u('enAbstractCopies')} />
+                        <SubRow label="報告書" ck={editing.enReport} setck={u('enReport')} qty={editing.enReportQty} setqty={u('enReportQty')} cop={editing.enReportCopies} setcop={u('enReportCopies')} />
+                        <SubRow label="電子檔" ck={editing.enDigital} setck={u('enDigital')} qty={editing.enDigitalQty} setqty={u('enDigitalQty')} cop={editing.enDigitalCopies} setcop={u('enDigitalCopies')} />
+                        <SubRow label="光碟" ck={editing.enCD} setck={u('enCD')} qty={editing.enCDQty} setqty={u('enCDQty')} cop={editing.enCDCopies} setcop={u('enCDCopies')} />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 日期資訊 */}
+                  <div style={{borderTop:'1px solid var(--bd)',paddingTop:10}}>
+                    <div style={{fontSize:11,fontWeight:700,color:'var(--tx3)',textTransform:'uppercase',letterSpacing:'.05em',marginBottom:8}}>日期資訊</div>
+                    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+                      <div className="fg"><label>交辦日期</label><input type="date" className="fi" value={editing.assignDate||''} onChange={e=>setEditing((p:any)=>({...p,assignDate:e.target.value}))} /></div>
+                      <div className="fg"><label>現勘日期</label><input type="date" className="fi" value={editing.siteVisitDate||''} onChange={e=>setEditing((p:any)=>({...p,siteVisitDate:e.target.value}))} /></div>
+                      <div className="fg"><label>價格日期</label><input type="date" className="fi" value={editing.priceDate||''} onChange={e=>setEditing((p:any)=>({...p,priceDate:e.target.value}))} /></div>
+                      <div className="fg">
+                        <label>預計出件日期</label>
+                        <input type="date" className="fi" value={editing.dueDate||''}
+                          onChange={e=>{
+                            const d = e.target.value
+                            setEditing((p:any)=>({...p,dueDate:d,staffDoneDate:subtractWorkdays(d,3)}))
+                          }} />
+                      </div>
+                      <div className="fg">
+                        <label style={{display:'flex',alignItems:'center',gap:4}}>
+                          承辦完成日期
+                          <span style={{fontSize:10,color:'var(--tx3)',fontWeight:400}}>(預計出件前3個工作日)</span>
+                        </label>
+                        <input type="date" className="fi" value={editing.staffDoneDate||''}
+                          onChange={e=>setEditing((p:any)=>({...p,staffDoneDate:e.target.value}))}
+                          style={{background:editing.staffDoneDate&&editing.staffDoneDate===subtractWorkdays(editing.dueDate,3)?'color-mix(in srgb, var(--blue) 5%, var(--bgc))':undefined}} />
+                      </div>
+                      <div className="fg"><label>實際出件日期</label><input type="date" className="fi" value={editing.actualDueDate||''} onChange={e=>setEditing((p:any)=>({...p,actualDueDate:e.target.value}))} /></div>
+                    </div>
+                  </div>
+                </div>
+              )
+            })()}
+
+            {/* ──── STEP 3：內部檢核 ──── */}
+            {modalStep===3&&(
+              <div style={{display:'flex',flexDirection:'column',gap:14}}>
+                {/* 簽證估價師 */}
+                <div>
+                  <div style={{fontSize:11,fontWeight:700,color:'var(--tx3)',textTransform:'uppercase',letterSpacing:'.05em',marginBottom:8}}>簽證(負責)估價師</div>
+                  <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
+                    {['胡毓忠','陳志豪','張博宇','黃慈妮'].map(a=>{
+                      const active = editing.appraisers?.includes(a)
+                      return (
+                        <button key={a} onClick={()=>setEditing((p:any)=>({...p,appraisers:active?p.appraisers.filter((x:string)=>x!==a):[...p.appraisers,a]}))}
+                          style={{padding:'5px 12px',borderRadius:5,border:`1px solid ${active?'var(--blue)':'var(--bd)'}`,background:active?'var(--blue)':'var(--bgc)',color:active?'#fff':'var(--tx)',fontSize:12,fontWeight:active?600:400,cursor:'pointer'}}>
+                          {a}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                {/* 承辦窗口 */}
+                <div>
+                  <div style={{fontSize:11,fontWeight:700,color:'var(--tx3)',textTransform:'uppercase',letterSpacing:'.05em',marginBottom:8}}>承辦窗口</div>
+                  <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
+                    {['張博宇','徐文靜','黃湞儀','黃慈妮','吳韋萱','許紘齊','方謙','郭旭庭'].map(a=>{
+                      const active = editing.assignees?.includes(a)
+                      return (
+                        <button key={a} onClick={()=>setEditing((p:any)=>({...p,assignees:active?p.assignees.filter((x:string)=>x!==a):[...p.assignees,a]}))}
+                          style={{padding:'5px 12px',borderRadius:5,border:`1px solid ${active?'var(--blue)':'var(--bd)'}`,background:active?'var(--blue)':'var(--bgc)',color:active?'#fff':'var(--tx)',fontSize:12,fontWeight:active?600:400,cursor:'pointer'}}>
+                          {displayName(a)}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                {/* 簽約金額 */}
+                <div className="fg">
+                  <label>簽約金額</label>
+                  <input type="number" className="fi" value={editing.contractAmount||''} onChange={e=>setEditing((p:any)=>({...p,contractAmount:parseFloat(e.target.value)||null}))} />
+                </div>
+
+                {/* 備註 */}
+                <div className="fg">
+                  <label>備註</label>
+                  <textarea className="dp-note" style={{minHeight:64}} value={editing.caseNotes||''} onChange={e=>setEditing((p:any)=>({...p,caseNotes:e.target.value}))} placeholder="其他注意事項…" />
+                </div>
               </div>
-            </div>
-            <div className="row2">
-              <div className="fg"><label>派件日</label><input type="date" className="fi" value={editing.assignDate||''} onChange={e=>setEditing((p:any)=>({...p,assignDate:e.target.value}))} /></div>
-              <div className="fg"><label>預計交件日</label><input type="date" className="fi" value={editing.dueDate||''} onChange={e=>setEditing((p:any)=>({...p,dueDate:e.target.value}))} /></div>
-            </div>
-            <div className="fg"><label>簽約金額</label><input type="number" className="fi" value={editing.contractAmount||''} onChange={e=>setEditing((p:any)=>({...p,contractAmount:parseFloat(e.target.value)||null}))} /></div>
+            )}
+
           </div>
+
+          {/* Footer：上一步 / 下一步 / 建立 */}
           <div className="mo-ft">
-            <button className="btn btn-ghost" onClick={()=>setModalOpen(false)}>取消</button>
-            <button className="btn btn-primary" onClick={createNewCase} disabled={saving}>{saving?'建立中…':'建立'}</button>
+            <button className="btn btn-ghost" onClick={()=>{if(modalStep===0)setModalOpen(false);else setModalStep(s=>s-1)}}>
+              {modalStep===0?'取消':'← 上一步'}
+            </button>
+            <div style={{display:'flex',gap:8}}>
+              {modalStep<3
+                ? <button className="btn btn-primary" onClick={()=>setModalStep(s=>s+1)}
+                    disabled={modalStep===0&&!editing.clientId&&!editing.name}>
+                    下一步 →
+                  </button>
+                : <button className="btn btn-primary" onClick={createNewCase} disabled={saving}>
+                    {saving?'建立中…':'✓ 建立案件'}
+                  </button>
+              }
+            </div>
           </div>
         </div>
       </div>
