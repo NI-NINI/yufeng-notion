@@ -434,7 +434,7 @@ function CasesInner() {
                 </div>
               </div>
 
-              {/* 重要提醒 */
+              {/* 重要提醒 */}
               <div className={`flag-row ${sel.redFlag?'on':''}`}>
                 <label style={{display:'flex',alignItems:'center',gap:6,fontSize:12,fontWeight:600,cursor:'pointer',whiteSpace:'nowrap'}}>
                   <input type="checkbox" checked={sel.redFlag||false} onChange={e=>setSel((p:any)=>({...p,redFlag:e.target.checked}))} />
