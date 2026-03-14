@@ -355,8 +355,8 @@ export async function updateClient(id: string, data: Partial<Client_>) {
   const props: any = {}
   if (data.name !== undefined)    props['委託單位名稱'] = { title: richText(data.name) }
   if (data.taxId !== undefined)   props['統一編號'] = { rich_text: richText(data.taxId) }
-  if (data.phone !== undefined)   props['公司電話'] = data.phone ? { phone_number: data.phone } : null
-  if (data.fax !== undefined)     props['傳真'] = data.fax ? { phone_number: data.fax } : null
+  if (data.phone !== undefined)   props['公司電話'] = data.phone ? { phone_number: data.phone } : { phone_number: null }
+  if (data.fax !== undefined)     props['傳真'] = data.fax ? { phone_number: data.fax } : { phone_number: null }
   if (data.address !== undefined) props['公司地址'] = { rich_text: richText(data.address) }
   if (data.giftMidAutumn !== undefined) props['中秋送禮'] = { checkbox: data.giftMidAutumn }
   if (data.giftYearEnd !== undefined)   props['年節送禮'] = { checkbox: data.giftYearEnd }
@@ -369,10 +369,10 @@ export async function updateClient(id: string, data: Partial<Client_>) {
     if (n('Name') !== undefined)    props[`聯絡窗口${i}_姓名`]  = { rich_text: richText(n('Name') ?? '') }
     if (n('Dept') !== undefined)    props[`聯絡窗口${i}_部門`]  = { rich_text: richText(n('Dept') ?? '') }
     if (n('Title') !== undefined)   props[`聯絡窗口${i}_職稱`]  = { rich_text: richText(n('Title') ?? '') }
-    if (n('Phone') !== undefined)   props[`聯絡窗口${i}_電話`]  = n('Phone') ? { phone_number: n('Phone') } : null
+    if (n('Phone') !== undefined)   props[`聯絡窗口${i}_電話`]  = { phone_number: n('Phone') || null }
     if (n('Ext') !== undefined)     props[`聯絡窗口${i}_分機`]  = { rich_text: richText(n('Ext') ?? '') }
-    if (n('Mobile') !== undefined)  props[`聯絡窗口${i}_手機`]  = n('Mobile') ? { phone_number: n('Mobile') } : null
-    if (n('Email') !== undefined)   props[`聯絡窗口${i}_Email`] = n('Email') ? { email: n('Email') } : null
+    if (n('Mobile') !== undefined)  props[`聯絡窗口${i}_手機`]  = { phone_number: n('Mobile') || null }
+    if (n('Email') !== undefined)   props[`聯絡窗口${i}_Email`] = { email: n('Email') || null }
     if (n('Birthday') !== undefined) props[`聯絡窗口${i}_生日`] = { rich_text: richText(n('Birthday') ?? '') }
     if (n('Notes') !== undefined)   props[`聯絡窗口${i}_備註`]  = { rich_text: richText(n('Notes') ?? '') }
     if (n('GiftMidAutumn') !== undefined) props[`聯絡窗口${i}_中秋送禮`] = { checkbox: n('GiftMidAutumn') }
