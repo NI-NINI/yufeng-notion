@@ -5,19 +5,19 @@ import Sidebar from '@/components/Sidebar'
 
 const TYPES = ['都更前期','都更','法拍','一般件','法院案','買賣','地上權','代金','國產署','合理市場租金參考','容積代金試算','公允價值評估','瑕疵','捷運聯開','危老','權利變換','其他']
 const STATUSES = ['未啟動','進行中','等待中','擱淺','覆核中','已完成']
-const PRIORITIES = ['特急','優先','普通','緩慢']
+const PRIORITIES = ['急件','優先','普通']
 const TEAMS = ['妮組','文組','未派']
 // 你現有DB承辦人是全名 select，前端顯示簡稱
-const ASSIGNEES: Record<string,string[]> = { 妮組:['慈妮','紘齊','韋萱','黃慈妮','許紘齊','吳韋萱'], 文組:['文靜','Jenny','旭庭','方謙','徐文靜'], 未派:[] }
-const ALL_ASSIGNEES = ['慈妮','紘齊','韋萱','文靜','Jenny','旭庭','方謙','黃慈妮','徐文靜','吳韋萱','許紘齊']
+const ASSIGNEES: Record<string,string[]> = { 妮組:['黃慈妮','許紘齊','吳韋萱'], 文組:['徐文靜','黃湞儀','方謙','郭旭庭'], 未派:['張博宇'] }
+const ALL_ASSIGNEES = ['黃慈妮','徐文靜','張博宇','吳韋萱','許紘齊','方謙','郭旭庭','黃湞儀']
 // 顯示名稱正規化（全名→簡稱）
-const SHORT: Record<string,string> = {'黃慈妮':'慈妮','徐文靜':'文靜','張博宇':'博宇','吳韋萱':'韋萱','許紘齊':'紘齊'}
+const SHORT: Record<string,string> = {'黃慈妮':'慈妮','徐文靜':'文靜','張博宇':'博宇','吳韋萱':'韋萱','許紘齊':'紘齊','郭旭庭':'旭庭','黃湞儀':'湞儀'}
 const displayName = (n:string) => SHORT[n] || n
 const APPRAISERS = ['所長','副所','博宇','慈妮','文靜']
 const LEADING_TYPES = ['領銜','非領銜','不適用']
 const PERIODS = ['第1期','第2期','第3期','第4期','第5期','尾款']
 
-const PC: Record<string,string> = { 慈妮:'#B45309',文靜:'#065F46',紘齊:'#9F1239',韋萱:'#4338CA',Jenny:'#BE185D',旭庭:'#92400E',方謙:'#1E40AF' }
+const PC: Record<string,string> = { 黃慈妮:'#B45309',徐文靜:'#065F46',許紘齊:'#9F1239',吳韋萱:'#4338CA',黃湞儀:'#BE185D',郭旭庭:'#92400E',方謙:'#1E40AF',張博宇:'#374151' }
 const uc = (n:string) => PC[n]||'#6B6760'
 
 const statusDot = (s:string) => {
@@ -28,7 +28,7 @@ const typeBadge = (t:string) => {
   const cls = {都更:'tg-mauve',都更前期:'tg-mauve',法拍:'tg-blue',一般件:'tg-muted',國產署:'tg-amber',權利變換:'tg-rose'}
   return <span className={`tg ${(cls as any)[t]||'tg-muted'}`}>{t}</span>
 }
-const priCls: Record<string,string> = {特急:'tg-rose',優先:'tg-amber',普通:'tg-muted',緩慢:'tg-muted'}
+const priCls: Record<string,string> = {急件:'tg-rose',優先:'tg-amber',普通:'tg-muted'}
 const fmt = (n:number|null|undefined) => n==null?'—':'$'+n.toLocaleString()
 const fd = (d:string) => { if(!d) return '—'; const t=new Date(d); return `${t.getMonth()+1}/${t.getDate()}` }
 const dl = (d:string) => { if(!d) return null; return Math.ceil((new Date(d).getTime()-Date.now())/864e5) }
@@ -160,9 +160,23 @@ function CasesInner() {
   }
 
   const createNewCase = async () => {
+    if (!editing.name?.trim() && !editing.clientName?.trim()) { alert('請填寫案件名稱或選擇委託單位'); return }
     setSaving(true)
+    // 組合標的物地址
+    const addrParts = [editing.city, editing.district, editing.landSection, editing.landNo ? '地號'+editing.landNo : '', editing.buildingNo ? '建號'+editing.buildingNo : '', editing.doorPlate].filter(Boolean)
+    const payload = {
+      ...editing,
+      name: editing.name?.trim() || editing.clientName || '新案件',
+      address: addrParts.join(' ') || editing.address,
+      progressNote: editing.caseNotes || '',
+    }
     try {
-      await fetch('/api/cases', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(editing) })
+      const res = await fetch('/api/cases', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) })
+      if (!res.ok) {
+        const err = await res.json().catch(()=>({error:'未知錯誤'}))
+        alert('建立失敗：' + (err.error || res.status))
+        return
+      }
       await loadAll()
       setModalOpen(false)
     } finally { setSaving(false) }
@@ -613,7 +627,7 @@ function CasesInner() {
 
       {/* ── 新增案件 Modal（4步驟 Stepper）── */}
       <div className={`mo-overlay ${modalOpen?'open':''}`} onClick={e=>{if(e.target===e.currentTarget)setModalOpen(false)}}>
-        <div className="mo" style={{maxWidth:640,width:'95vw'}}>
+        <div className="mo" style={{maxWidth:740,width:'96vw'}}>
           <div className="mo-hd">
             <h2>新增案件</h2>
             <button className="dp-close" onClick={()=>setModalOpen(false)}>✕</button>
@@ -914,7 +928,7 @@ function CasesInner() {
             <div style={{display:'flex',gap:8}}>
               {modalStep<3
                 ? <button className="btn btn-primary" onClick={()=>setModalStep(s=>s+1)}
-                    disabled={modalStep===0&&!editing.clientId&&!editing.name}>
+                    disabled={modalStep===0&&!editing.clientId}>
                     下一步 →
                   </button>
                 : <button className="btn btn-primary" onClick={createNewCase} disabled={saving}>

@@ -7,7 +7,7 @@ export const notion = new Client({
 export const DB_IDS = {
   clients:  process.env.NOTION_CLIENT_DB_ID!,
   cases:    process.env.NOTION_CASE_DB_ID || '9828c9d4978c829488f0818ccd196c81',
-  payments: process.env.NOTION_PAYMENT_DB_ID!,
+  payments: process.env.NOTION_PAYMENT_DB_ID || 'ea37b795aa4a4bf38fc684bcd2fda01f',
 }
 
 // ── 型別定義 ──────────────────────────────────────────────────
@@ -231,7 +231,7 @@ export function toCase(page: any, clientMap: Record<string, string> = {}): Case_
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function toPayment(page: any, caseMap: Record<string, string> = {}, caseDetailMap: Record<string, Case_> = {}): Payment_ {
-  const caseIds = relation_(page, '委託案件')
+  const caseIds = relation_(page, '案件')
   const caseId = caseIds[0] ?? ''
   const cd = caseDetailMap[caseId]
   return {
@@ -243,13 +243,13 @@ export function toPayment(page: any, caseMap: Record<string, string> = {}, caseD
     caseAssignees: cd?.assignees ?? [],
     caseContractAmount: cd?.contractAmount ?? null,
     period: select_(page, '期別'),
-    amount: num(page, '應收金額'),
-    year: num(page, '請款年度'),
-    quarter: select_(page, '請款季別'),
+    amount: num(page, '請款金額'),
+    ratePct: num(page, '請款比例'),
+    receivedAmount: num(page, '實收金額'),
     status: select_(page, '收款狀態'),
-    receiptNo: text(page, '收據編號'),
+    receiptNo: text(page, '收據號碼'),
     invoiceDate: date_(page, '請款日期'),
-    receivedDate: date_(page, '實收日期'),
+    receivedDate: date_(page, '收款日期'),
     notes: text(page, '備註'),
   }
 }
@@ -392,24 +392,16 @@ export async function createCase(data: Partial<Case_>) {
   if (data.clientId) props['委託單位'] = { relation: [{ id: data.clientId }] }
   if (data.caseType) props['估價目的'] = { select: { name: data.caseType } }
   if (data.address) props['標的物地址'] = { rich_text: richText(data.address) }
-  if (data.contractAmount !== undefined) props['簽約金額'] = { number: data.contractAmount }
-  if (data.discountRate !== undefined) props['折扣比例'] = { number: data.discountRate }
-  if (data.contractDate) props['簽約日期'] = { date: { start: data.contractDate } }
-  if (data.plannedDate) props['預定完成日'] = { date: { start: data.plannedDate } }
-  if (data.documentNotes) props['文件備註'] = { rich_text: richText(data.documentNotes) }
   if (data.team) props['組別'] = { select: { name: data.team } }
   if (data.assignees?.length) props['承辦人'] = { multi_select: data.assignees.map(n => ({ name: n })) }
   if (data.appraisers?.length) props['簽證(負責)估價師'] = { multi_select: data.appraisers.map(n => ({ name: n })) }
   if (data.status) props['案件狀態'] = { select: { name: data.status } }
   if (data.priority) props['順位'] = { select: { name: data.priority } }
   if (data.assignDate) props['完成期限'] = { date: { start: data.assignDate } }
-  if (data.dueDate) { props['出件期限'] = { date: { start: data.dueDate } } }
-  if (data.difficulty) props['案件難度'] = { select: { name: data.difficulty } }
-  if (data.stuckReason) props['擱淺原因'] = { rich_text: richText(data.stuckReason) }
-  if (data.progressNote) { props['進度備註'] = { rich_text: richText(data.progressNote) }; props['進度'] = { rich_text: richText(data.progressNote) } }
-  if (data.qualityScore !== undefined) props['品質分數'] = { number: data.qualityScore }
-  if (data.redFlag !== undefined) props['業務紅燈'] = { checkbox: data.redFlag }
-  if (data.redFlagNote !== undefined) props['紅燈備註'] = { rich_text: richText(data.redFlagNote) }
+  if (data.dueDate) props['出件期限'] = { date: { start: data.dueDate } }
+  if (data.contractAmount) props['案件金額'] = { rich_text: richText(String(data.contractAmount)) }
+  if (data.progressNote) props['進度'] = { rich_text: richText(data.progressNote) }
+  if (data.redFlagNote !== undefined) props['紅燈備註'] = { rich_text: richText(data.redFlagNote ?? '') }
   return notion.pages.create({ parent: { database_id: DB_IDS.cases }, properties: props })
 }
 
@@ -422,11 +414,7 @@ export async function updateCase(id: string, data: Partial<Case_>) {
   if (data.clientId !== undefined) props['委託單位'] = { relation: data.clientId ? [{ id: data.clientId }] : [] }
   if (data.caseType !== undefined) props['估價目的'] = { select: data.caseType ? { name: data.caseType } : null }
   if (data.address !== undefined) props['標的物地址'] = { rich_text: richText(data.address) }
-  if (data.contractAmount !== undefined) props['簽約金額'] = { number: data.contractAmount }
-  if (data.discountRate !== undefined) props['折扣比例'] = { number: data.discountRate }
-  if (data.contractDate !== undefined) props['簽約日期'] = { date: data.contractDate ? { start: data.contractDate } : null }
-  if (data.plannedDate !== undefined) props['預定完成日'] = { date: data.plannedDate ? { start: data.plannedDate } : null }
-  if (data.documentNotes !== undefined) props['文件備註'] = { rich_text: richText(data.documentNotes) }
+  if (data.contractAmount !== undefined) props['案件金額'] = { rich_text: richText(String(data.contractAmount ?? '')) }
   if (data.team !== undefined) props['組別'] = { select: data.team ? { name: data.team } : null }
   if (data.assignees !== undefined) props['承辦人'] = { multi_select: data.assignees.map(n => ({ name: n })) }
   if (data.appraisers !== undefined) props['簽證(負責)估價師'] = { multi_select: data.appraisers.map(n => ({ name: n })) }
@@ -436,15 +424,8 @@ export async function updateCase(id: string, data: Partial<Case_>) {
   if (data.dueDate !== undefined) {
     props['出件期限'] = { date: data.dueDate ? { start: data.dueDate } : null }
   }
-  if (data.difficulty !== undefined) props['案件難度'] = { select: data.difficulty ? { name: data.difficulty } : null }
-  if (data.stuckReason !== undefined) props['擱淺原因'] = { rich_text: richText(data.stuckReason) }
-  if (data.progressNote !== undefined) {
-    props['進度備註'] = { rich_text: richText(data.progressNote) }
-    props['進度'] = { rich_text: richText(data.progressNote) }
-  }
-  if (data.qualityScore !== undefined) props['品質分數'] = { number: data.qualityScore }
-  if (data.redFlag !== undefined) props['業務紅燈'] = { checkbox: data.redFlag }
-  if (data.redFlagNote !== undefined) props['紅燈備註'] = { rich_text: richText(data.redFlagNote) }
+  if (data.progressNote !== undefined) props['進度'] = { rich_text: richText(data.progressNote) }
+  if (data.redFlagNote !== undefined) props['紅燈備註'] = { rich_text: richText(data.redFlagNote ?? '') }
   return notion.pages.update({ page_id: id, properties: props })
 }
 
@@ -453,13 +434,13 @@ export async function createPayment(data: Partial<Payment_>) {
   const props: any = { '收款項目': { title: richText(data.title ?? '') } }
   if (data.caseId) props['案件'] = { relation: [{ id: data.caseId }] }
   if (data.period) props['期別'] = { select: { name: data.period } }
-  if (data.amount !== undefined) props['應收金額'] = { number: data.amount }
-  if (data.year !== undefined) props['請款年度'] = { number: data.year }
-  if (data.quarter) props['請款季別'] = { select: { name: data.quarter } }
+  if (data.amount !== undefined) props['請款金額'] = { number: data.amount }
+  if (data.ratePct !== undefined) props['請款比例'] = { number: data.ratePct }
+  if (data.receivedAmount !== undefined) props['實收金額'] = { number: data.receivedAmount }
   if (data.status) props['收款狀態'] = { select: { name: data.status } }
-  if (data.receiptNo) props['收據編號'] = { rich_text: richText(data.receiptNo) }
+  if (data.receiptNo) props['收據號碼'] = { rich_text: richText(data.receiptNo) }
   if (data.invoiceDate) props['請款日期'] = { date: { start: data.invoiceDate } }
-  if (data.receivedDate) props['實收日期'] = { date: { start: data.receivedDate } }
+  if (data.receivedDate) props['收款日期'] = { date: { start: data.receivedDate } }
   if (data.notes) props['備註'] = { rich_text: richText(data.notes) }
   return notion.pages.create({ parent: { database_id: DB_IDS.payments }, properties: props })
 }
@@ -469,13 +450,13 @@ export async function updatePayment(id: string, data: Partial<Payment_>) {
   if (data.title !== undefined) props['收款項目'] = { title: richText(data.title) }
   if (data.caseId !== undefined) props['案件'] = { relation: data.caseId ? [{ id: data.caseId }] : [] }
   if (data.period !== undefined) props['期別'] = { select: data.period ? { name: data.period } : null }
-  if (data.amount !== undefined) props['應收金額'] = { number: data.amount }
-  if (data.year !== undefined) props['請款年度'] = { number: data.year }
-  if (data.quarter !== undefined) props['請款季別'] = { select: data.quarter ? { name: data.quarter } : null }
+  if (data.amount !== undefined) props['請款金額'] = { number: data.amount }
+  if (data.ratePct !== undefined) props['請款比例'] = { number: data.ratePct }
+  if (data.receivedAmount !== undefined) props['實收金額'] = { number: data.receivedAmount }
   if (data.status !== undefined) props['收款狀態'] = { select: data.status ? { name: data.status } : null }
-  if (data.receiptNo !== undefined) props['收據編號'] = { rich_text: richText(data.receiptNo) }
+  if (data.receiptNo !== undefined) props['收據號碼'] = { rich_text: richText(data.receiptNo) }
   if (data.invoiceDate !== undefined) props['請款日期'] = { date: data.invoiceDate ? { start: data.invoiceDate } : null }
-  if (data.receivedDate !== undefined) props['實收日期'] = { date: data.receivedDate ? { start: data.receivedDate } : null }
+  if (data.receivedDate !== undefined) props['收款日期'] = { date: data.receivedDate ? { start: data.receivedDate } : null }
   if (data.notes !== undefined) props['備註'] = { rich_text: richText(data.notes) }
   return notion.pages.update({ page_id: id, properties: props })
 }
