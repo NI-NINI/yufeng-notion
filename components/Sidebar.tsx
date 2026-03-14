@@ -6,6 +6,7 @@ const nav = [
   { href: '/dashboard', icon: '◫', label: '總覽' },
   { href: '/clients',   icon: '▣', label: '客戶管理' },
   { href: '/cases',     icon: '≡', label: '案件管理' },
+  { href: '/workload',  icon: '◐', label: '負荷分析' },
   { href: '/bonus',     icon: '◈', label: '獎金配發' },
   { href: '/gifts',     icon: '◇', label: '節日送禮' },
   { href: '/payments',  icon: '◉', label: '付款管理' },
