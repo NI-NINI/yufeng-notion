@@ -9,7 +9,10 @@ const nav = [
     { href: '/clients', icon: '▣', label: '客戶資料' },
     { href: '/gifts',   icon: '◇', label: '送禮篩選' },
   ]},
-  { href: '/cases',     icon: '≡', label: '案件管理' },
+  { group: '案件管理', items: [
+    { href: '/cases/new',    icon: '＋', label: '案件建立' },
+    { href: '/cases',        icon: '≡', label: '案件查詢' },
+  ]},
   { href: '/workload',  icon: '◑', label: '負荷分析' },
   { href: '/bonus',     icon: '◈', label: '獎金配發' },
   { href: '/payments',  icon: '◉', label: '付款管理' },

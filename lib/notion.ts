@@ -82,6 +82,12 @@ export interface Case_ {
   difficultyWeight: number | null
   redFlag: boolean
   redFlagNote: string
+  importantNote: string
+  leadingTypeField: string  // Notion '領銜類型'
+  leadingFeeText: string    // Notion '領銜費'
+  companyShare: string      // Notion '公司分紅'
+  difficultyScore: number | null
+  completionScore: number | null
   updatedAt: string
 }
 
@@ -208,7 +214,7 @@ export function toCase(page: any, clientMap: Record<string, string> = {}): Case_
     team: select_(page, '負責組別') || select_(page, '組別') || '',
     assignees,
     appraisers: multiSelect(page, '簽證(負責)估價師').length ? multiSelect(page, '簽證(負責)估價師') : multiSelect(page, '簽證估價師'),
-    status: select_(page, '案件狀態') || (checkbox_(page,'是否進行中') ? '進行中' : checkbox_(page,'是否已結案') ? '已完成' : '未啟動'),
+    status: select_(page, '案件狀態') || (checkbox_(page,'是否進行中') ? '進行中' : checkbox_(page,'是否已結案') ? '已完成' : '未開始'),
     priority: select_(page, '順位'),
     assignDate: date_(page, '派件日'),
     dueDate: date_(page, '預計交件日') || date_(page, '出件期限'),
@@ -225,6 +231,12 @@ export function toCase(page: any, clientMap: Record<string, string> = {}): Case_
     difficultyWeight: formula_(page, '難度權重'),
     redFlag: checkbox_(page, '業務紅燈'),
     redFlagNote: text(page, '紅燈備註'),
+    importantNote: text(page, '重要提醒'),
+    leadingTypeField: select_(page, '領銜類型'),
+    leadingFeeText: text(page, '領銜費'),
+    companyShare: text(page, '公司分紅'),
+    difficultyScore: num(page, '案件難度'),
+    completionScore: num(page, '案件完成度'),
     updatedAt: prop(page, '最後更新')?.last_edited_time ?? '',
   }
 }
@@ -399,7 +411,13 @@ export async function createCase(data: Partial<Case_>) {
   if (data.priority) props['順位'] = { select: { name: data.priority } }
   if (data.assignDate) props['完成期限'] = { date: { start: data.assignDate } }
   if (data.dueDate) props['出件期限'] = { date: { start: data.dueDate } }
-  if (data.contractAmount) props['案件金額'] = { rich_text: richText(String(data.contractAmount)) }
+  if (data.contractAmount) props['服務費用'] = { rich_text: richText(String(data.contractAmount)) }
+  if (data.leadingTypeField) props['領銜類型'] = { select: { name: data.leadingTypeField } }
+  if (data.leadingFeeText) props['領銜費'] = { rich_text: richText(data.leadingFeeText) }
+  if (data.companyShare) props['公司分紅'] = { rich_text: richText(data.companyShare) }
+  if (data.importantNote) props['重要提醒'] = { rich_text: richText(data.importantNote) }
+  if (data.difficultyScore !== undefined && data.difficultyScore !== null) props['案件難度'] = { number: data.difficultyScore }
+  if (data.completionScore !== undefined && data.completionScore !== null) props['案件完成度'] = { number: data.completionScore }
   if (data.progressNote) props['進度'] = { rich_text: richText(data.progressNote) }
   if (data.redFlagNote !== undefined) props['紅燈備註'] = { rich_text: richText(data.redFlagNote ?? '') }
   return notion.pages.create({ parent: { database_id: DB_IDS.cases }, properties: props })
@@ -414,7 +432,10 @@ export async function updateCase(id: string, data: Partial<Case_>) {
   if (data.clientId !== undefined) props['委託單位'] = { relation: data.clientId ? [{ id: data.clientId }] : [] }
   if (data.caseType !== undefined) props['估價目的'] = { select: data.caseType ? { name: data.caseType } : null }
   if (data.address !== undefined) props['標的物地址'] = { rich_text: richText(data.address) }
-  if (data.contractAmount !== undefined) props['案件金額'] = { rich_text: richText(String(data.contractAmount ?? '')) }
+  if (data.contractAmount !== undefined) props['服務費用'] = { rich_text: richText(String(data.contractAmount ?? '')) }
+  if (data.importantNote !== undefined) props['重要提醒'] = { rich_text: richText(data.importantNote ?? '') }
+  if (data.difficultyScore !== undefined) props['案件難度'] = { number: data.difficultyScore }
+  if (data.completionScore !== undefined) props['案件完成度'] = { number: data.completionScore }
   if (data.team !== undefined) props['組別'] = { select: data.team ? { name: data.team } : null }
   if (data.assignees !== undefined) props['承辦人'] = { multi_select: data.assignees.map(n => ({ name: n })) }
   if (data.appraisers !== undefined) props['簽證(負責)估價師'] = { multi_select: data.appraisers.map(n => ({ name: n })) }

@@ -4,7 +4,7 @@ import { useSearchParams } from 'next/navigation'
 import Sidebar from '@/components/Sidebar'
 
 const TYPES = ['都更前期','都更','法拍','一般件','法院案','買賣','地上權','代金','國產署','合理市場租金參考','容積代金試算','公允價值評估','瑕疵','捷運聯開','危老','權利變換','其他']
-const STATUSES = ['未啟動','進行中','等待中','擱淺','覆核中','已完成']
+const STATUSES = ['未開始','進行中','停滯中','已完成','已請款']
 const PRIORITIES = ['急件','優先','普通']
 const TEAMS = ['妮組','文組','未派']
 // 你現有DB承辦人是全名 select，前端顯示簡稱
@@ -13,16 +13,16 @@ const ALL_ASSIGNEES = ['黃慈妮','徐文靜','張博宇','吳韋萱','許紘�
 // 顯示名稱正規化（全名→簡稱）
 const SHORT: Record<string,string> = {'黃慈妮':'慈妮','徐文靜':'文靜','張博宇':'博宇','吳韋萱':'韋萱','許紘齊':'紘齊','郭旭庭':'旭庭','黃湞儀':'湞儀'}
 const displayName = (n:string) => SHORT[n] || n
-const APPRAISERS = ['所長','副所','博宇','慈妮','文靜']
-const LEADING_TYPES = ['領銜','非領銜','不適用']
+const APPRAISERS = ['所長','副所','張博宇','黃慈妮','徐文靜']
+const LEADING_TYPES = ['領銜','非領銜','其他']
 const PERIODS = ['第1期','第2期','第3期','第4期','第5期','尾款']
 
 const PC: Record<string,string> = { 黃慈妮:'#B45309',徐文靜:'#065F46',許紘齊:'#9F1239',吳韋萱:'#4338CA',黃湞儀:'#BE185D',郭旭庭:'#92400E',方謙:'#1E40AF',張博宇:'#374151' }
 const uc = (n:string) => PC[n]||'#6B6760'
 
 const statusDot = (s:string) => {
-  const cls = {進行中:'st-a',覆核中:'st-r',等待中:'st-r',已完成:'st-d',擱淺:'st-s'}
-  return <span className={`st ${(cls as any)[s]||''}`}>{s}</span>
+  const cls:any = {進行中:'st-a',停滯中:'st-r',已完成:'st-d',已請款:'st-d'}
+  return <span className={`st ${cls[s]||''}`}>{s}</span>
 }
 const typeBadge = (t:string) => {
   const cls = {都更:'tg-mauve',都更前期:'tg-mauve',法拍:'tg-blue',一般件:'tg-muted',國產署:'tg-amber',權利變換:'tg-rose'}
@@ -36,11 +36,12 @@ const dl = (d:string) => { if(!d) return null; return Math.ceil((new Date(d).get
 const emptyCase = () => ({
   name:'', clientId:'', clientName:'', caseType:'', address:'',
   team:'妮組', assignees:[] as string[], appraisers:[] as string[],
-  status:'未啟動', priority:'普通', contractAmount:null as number|null,
+  status:'未開始', priority:'普通', contractAmount:null as number|null,
   discountRate:100, contractDate:'', assignDate:'', dueDate:'',
   progressNote:'', documentNotes:'', stuckReason:'',
   redFlag:false, redFlagNote:'',
-  leadingType:'不適用', leadingFee:null as number|null, leadingFeeNote:'',
+  leadingType:'其他', leadingFee:null as number|null, leadingFeeNote:'',
+  importantNote:'', completionScore:null as number|null, difficultyScore:null as number|null,
   city:'', district:'', landSection:'', landNo:'', buildingNo:'', doorPlate:'',
   siteVisitDate:'', priceDate:'', staffDoneDate:'', actualDueDate:'',
   zhCount:false, zhCountQty:'1', zhCountCopies:'1',
@@ -387,7 +388,7 @@ function CasesInner() {
                   <select className="fi" style={{width:80,padding:'2px 5px',fontSize:11}} value=""
                     onChange={e=>{if(e.target.value)setSel((p:any)=>{ const prev:string[]=p.assignees||[]; return {...p,assignees:prev.includes(e.target.value)?prev:[...prev,e.target.value]} })}}>
                     <option value="">+</option>
-                    {['慈妮','紘齊','韋萱','文靜','Jenny','旭庭','方謙'].filter((a:string)=>!sel.assignees?.includes(a)).map((a:string)=><option key={a}>{a}</option>)}
+                    {ALL_ASSIGNEES.filter((a:string)=>!sel.assignees?.includes(a)).map((a:string)=><option key={a}>{displayName(a)}</option>)}
                   </select>
                 </div>
 
@@ -425,7 +426,7 @@ function CasesInner() {
                   )}
                 </div>
 
-                <div className="dp-gl">簽約金額</div>
+                <div className="dp-gl">服務費用</div>
                 <div style={{display:'flex',alignItems:'center',gap:5}}>
                   <span className="muted">$</span>
                   <input type="number" className="fi" style={{width:130,textAlign:'right',fontFamily:'var(--m)'}}
@@ -433,13 +434,13 @@ function CasesInner() {
                 </div>
               </div>
 
-              {/* 業務紅燈 */}
+              {/* 重要提醒 */
               <div className={`flag-row ${sel.redFlag?'on':''}`}>
                 <label style={{display:'flex',alignItems:'center',gap:6,fontSize:12,fontWeight:600,cursor:'pointer',whiteSpace:'nowrap'}}>
                   <input type="checkbox" checked={sel.redFlag||false} onChange={e=>setSel((p:any)=>({...p,redFlag:e.target.checked}))} />
-                  業務紅燈
+                  重要提醒
                 </label>
-                <input className="fi" style={{flex:1}} placeholder="紅燈原因…"
+                <input className="fi" style={{flex:1}} placeholder="重要提醒內容…"
                   value={sel.redFlagNote||''} onChange={e=>setSel((p:any)=>({...p,redFlagNote:e.target.value}))} />
               </div>
 
@@ -548,10 +549,38 @@ function CasesInner() {
                 </div>
               </div>
 
-              {/* 備註 */}
+              {/* 備註 + 評分 */}
               <div style={{marginBottom:10}}>
                 <div style={{fontSize:10,fontWeight:700,color:'var(--tx3)',textTransform:'uppercase',letterSpacing:'.05em',marginBottom:5}}>進度備註</div>
                 <textarea className="dp-note" value={sel.progressNote||''} onChange={e=>setSel((p:any)=>({...p,progressNote:e.target.value}))} />
+              </div>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:10}}>
+                <div className="fg">
+                  <label style={{fontSize:10,fontWeight:700,color:'var(--tx3)',textTransform:'uppercase',letterSpacing:'.05em'}}>案件難度 (1-5)</label>
+                  <div style={{display:'flex',gap:4,marginTop:4}}>
+                    {[1,2,3,4,5].map(n=>(
+                      <button key={n} onClick={()=>setSel((p:any)=>({...p,difficultyScore:p.difficultyScore===n?null:n}))}
+                        style={{width:28,height:28,borderRadius:5,border:'1px solid var(--bd)',cursor:'pointer',fontSize:12,fontWeight:600,
+                          background:sel.difficultyScore>=n?'var(--blue)':'var(--bgc)',
+                          color:sel.difficultyScore>=n?'#fff':'var(--tx3)'}}>
+                        {n}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="fg">
+                  <label style={{fontSize:10,fontWeight:700,color:'var(--tx3)',textTransform:'uppercase',letterSpacing:'.05em'}}>案件完成度 (1-5)</label>
+                  <div style={{display:'flex',gap:4,marginTop:4}}>
+                    {[1,2,3,4,5].map(n=>(
+                      <button key={n} onClick={()=>setSel((p:any)=>({...p,completionScore:p.completionScore===n?null:n}))}
+                        style={{width:28,height:28,borderRadius:5,border:'1px solid var(--bd)',cursor:'pointer',fontSize:12,fontWeight:600,
+                          background:sel.completionScore>=n?'#16a34a':'var(--bgc)',
+                          color:sel.completionScore>=n?'#fff':'var(--tx3)'}}>
+                        {n}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
               <div style={{marginBottom:14}}>
                 <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:5}}>
