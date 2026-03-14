@@ -42,7 +42,7 @@ const emptyCase = () => ({
   redFlag:false, redFlagNote:'',
   leadingType:'其他', leadingFee:null as number|null, leadingFeeNote:'',
   importantNote:'', completionScore:null as number|null, difficultyScore:null as number|null,
-  nextDeadline:'', nextDeadlineNote:'',',
+  nextDeadline:'', nextDeadlineNote:'',
   city:'', district:'', landSection:'', landNo:'', buildingNo:'', doorPlate:'',
   siteVisitDate:'', priceDate:'', staffDoneDate:'', actualDueDate:'',
   zhCount:false, zhCountQty:'1', zhCountCopies:'1',
