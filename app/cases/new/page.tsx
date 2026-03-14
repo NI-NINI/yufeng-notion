@@ -75,9 +75,9 @@ export default function CasesNewPage() {
   const totalPct = servicePeriods.reduce((s, p) => s + (parseFloat(p.pct) || 0), 0)
   const amt = parseFloat(form.contractAmount) || 0
 
-  // 計算公司分紅（非領銜）
+  // 計算公司分紅（非領銜記錄用，但分期仍用全額）
   const companyShare = form.leadingType === '非領銜' ? amt * 0.3 : 0
-  const serviceAmt = form.leadingType === '非領銜' ? amt * 0.7 : amt
+  const serviceAmt = amt  // 無論哪種類型，分期都以全額為基礎
 
   const handleSubmit = async () => {
     if (!form.name?.trim() && !form.clientName) { alert('請填寫案件名稱或委託單位'); return }
@@ -89,9 +89,9 @@ export default function CasesNewPage() {
     // 組建 periods 說明字串
     const periodsNote = servicePeriods.map(p => `${p.label} ${p.pct}%`).join('、')
     const leadingNote = form.leadingType === '領銜'
-      ? `領銜費:${form.leadingFee||'—'}元(兩期各50%)；一般服務費用分期:${periodsNote}`
+      ? `領銜費:${form.leadingFee||'—'}元(兩期各50%)；服務費用分期:${periodsNote}`
       : form.leadingType === '非領銜'
-      ? `公司分紅30%:${companyShare.toLocaleString()}元；一般服務費用70%分期:${periodsNote}`
+      ? `非領銜：公司分紅30%=${companyShare.toLocaleString()}元；服務費用100%分期:${periodsNote}`
       : `服務費用分期:${periodsNote}`
 
     const payload = {
@@ -105,6 +105,7 @@ export default function CasesNewPage() {
       contractAmount: amt || null,
       leadingType: form.leadingType,
       leadingFee: form.leadingType === '領銜' ? form.leadingFee : null,
+      companyShare: form.leadingType === '非領銜' && amt > 0 ? String(Math.round(amt * 0.3)) : null,
       assignDate: form.assignDate,
       dueDate: form.dueDate,
       progressNote: form.importantNote ? `【重要提醒】${form.importantNote}` : '',
@@ -395,16 +396,14 @@ export default function CasesNewPage() {
               {/* 非領銜案 - 公司分紅說明 */}
               {form.leadingType === '非領銜' && amt > 0 && (
                 <div style={{ background: 'color-mix(in srgb, #f59e0b 8%, transparent)', borderRadius: 8, padding: 14, border: '1px solid color-mix(in srgb, #f59e0b 25%, transparent)' }}>
-                  <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 6, color: '#b45309' }}>非領銜費用說明</div>
-                  <div style={{ display: 'flex', gap: 12, fontSize: 12 }}>
+                  <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 6, color: '#b45309' }}>非領銜－公司分紅記錄</div>
+                  <div style={{ display: 'flex', gap: 16, fontSize: 12, alignItems: 'center' }}>
                     <div>
-                      <div style={{ color: 'var(--tx3)', marginBottom: 2 }}>公司分紅（30%）</div>
-                      <div style={{ fontWeight: 700, fontFamily: 'var(--m)', fontSize: 15 }}>${companyShare.toLocaleString()}</div>
+                      <div style={{ color: 'var(--tx3)', marginBottom: 2 }}>公司分紅（30%，僅記錄用）</div>
+                      <div style={{ fontWeight: 700, fontFamily: 'var(--m)', fontSize: 16 }}>${companyShare.toLocaleString()}</div>
                     </div>
-                    <div style={{ width: 1, background: 'var(--bd)' }} />
-                    <div>
-                      <div style={{ color: 'var(--tx3)', marginBottom: 2 }}>一般服務費用（70%）</div>
-                      <div style={{ fontWeight: 700, fontFamily: 'var(--m)', fontSize: 15 }}>${serviceAmt.toLocaleString()}</div>
+                    <div style={{ fontSize: 11, color: 'var(--tx3)', lineHeight: 1.5 }}>
+                      ✓ 分期設定以服務費用總額 ${amt.toLocaleString()} 為基礎
                     </div>
                   </div>
                 </div>
@@ -414,7 +413,7 @@ export default function CasesNewPage() {
               <div style={{ border: '1px solid var(--bd)', borderRadius: 8, padding: 14 }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
                   <div style={{ fontWeight: 700, fontSize: 13 }}>
-                    {form.leadingType === '領銜' ? '一般服務費用' : form.leadingType === '非領銜' ? '一般服務費用（70%）' : '服務費用'}分期設定
+                    {form.leadingType === '領銜' ? '一般服務費用' : '服務費用'}分期設定
                   </div>
                   <button className="btn btn-sm" onClick={addPeriod}>＋ 新增期別</button>
                 </div>

@@ -42,6 +42,7 @@ const emptyCase = () => ({
   redFlag:false, redFlagNote:'',
   leadingType:'其他', leadingFee:null as number|null, leadingFeeNote:'',
   importantNote:'', completionScore:null as number|null, difficultyScore:null as number|null,
+  nextDeadline:'', nextDeadlineNote:'',',
   city:'', district:'', landSection:'', landNo:'', buildingNo:'', doorPlate:'',
   siteVisitDate:'', priceDate:'', staffDoneDate:'', actualDueDate:'',
   zhCount:false, zhCountQty:'1', zhCountCopies:'1',
@@ -378,6 +379,9 @@ function CasesInner() {
                   {TEAMS.map(t=><option key={t}>{t}</option>)}
                 </select>
 
+                <div style={{gridColumn:'1/-1',paddingTop:4,paddingBottom:2,borderTop:'1px solid var(--bd)',marginTop:4}}>
+                  <span style={{fontSize:10,fontWeight:700,color:'var(--blue)',textTransform:'uppercase',letterSpacing:'.06em'}}>▸ 承辦填寫區</span>
+                </div>
                 <div className="dp-gl">承辦</div>
                 <div style={{display:'flex',gap:4,flexWrap:'wrap',alignItems:'center'}}>
                   {(sel.assignees||[]).map((a:string)=>(
@@ -500,6 +504,16 @@ function CasesInner() {
                   <h3>分期付款</h3>
                   <button className="btn btn-sm" onClick={addPayRow}>+ 新增期別</button>
                 </div>
+                {/* 業務填寫費用摘要（唯讀） */}
+                {(sel.contractAmount||sel.leadingTypeField||sel.companyShare)&&(
+                  <div style={{padding:'8px 12px',margin:'0 0 8px',borderRadius:6,background:'color-mix(in srgb,var(--blue) 5%,transparent)',border:'1px solid color-mix(in srgb,var(--blue) 15%,transparent)',fontSize:11,display:'flex',gap:16,flexWrap:'wrap'}}>
+                    {sel.contractAmount&&<span><span style={{color:'var(--tx3)'}}>服務費用</span> <b style={{fontFamily:'var(--m)'}}>${Number(sel.contractAmount).toLocaleString()}</b></span>}
+                    {sel.leadingTypeField&&<span><span style={{color:'var(--tx3)'}}>類型</span> <b>{sel.leadingTypeField}</b></span>}
+                    {sel.leadingFeeText&&<span><span style={{color:'var(--tx3)'}}>領銜費</span> <b style={{fontFamily:'var(--m)'}}>${Number(sel.leadingFeeText||0).toLocaleString()}</b></span>}
+                    {sel.companyShare&&<span style={{color:'#b45309'}}><span style={{color:'var(--tx3)'}}>公司分紅(30%)</span> <b style={{fontFamily:'var(--m)'}}>${Number(sel.companyShare||0).toLocaleString()}</b></span>}
+                    {sel.documentNotes&&<span style={{color:'var(--tx3)',fontSize:10}}>{sel.documentNotes}</span>}
+                  </div>
+                )}
                 <div className="sec-body">
                   <div className="pay-hd">
                     <span>期別</span><span>比例</span><span>金額</span><span>狀態</span><span>收據號</span><span/>
@@ -545,6 +559,41 @@ function CasesInner() {
                     <button className="btn btn-primary btn-sm" onClick={()=>Promise.all(payRows.map(savePayRow))} disabled={savingPay}>
                       {savingPay?'儲存中…':'同步付款記錄'}
                     </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* 日期資訊總覽 */}
+              <div className="sec" style={{marginBottom:10}}>
+                <div className="sec-hd"><h3>日期資訊</h3></div>
+                <div className="sec-body">
+                  <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6,fontSize:12,marginBottom:12}}>
+                    {[
+                      {label:'交辦日期', val:sel.assignDate},
+                      {label:'現勘日期', val:sel.siteVisitDate},
+                      {label:'價格日期', val:sel.priceDate},
+                      {label:'預計出件', val:sel.dueDate},
+                      {label:'承辦完成', val:sel.staffDoneDate},
+                      {label:'實際出件', val:sel.actualDueDate},
+                    ].map(({label,val})=>(
+                      <div key={label} style={{display:'flex',justifyContent:'space-between',padding:'4px 8px',borderRadius:5,background:'var(--bgh)'}}>
+                        <span style={{color:'var(--tx3)'}}>{label}</span>
+                        <span style={{fontFamily:'var(--m)',fontWeight:600,color:val?'var(--tx)':'var(--tx3)'}}>{val?fd(val):'—'}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+                    <div className="fg">
+                      <label>下一階段交件日</label>
+                      <input type="date" className="fi" value={sel.nextDeadline||''}
+                        onChange={e=>setSel((p:any)=>({...p,nextDeadline:e.target.value}))} />
+                    </div>
+                    <div className="fg">
+                      <label>交件備註（交件事項提醒）</label>
+                      <input className="fi" placeholder="下一階段需交件項目…"
+                        value={sel.nextDeadlineNote||''}
+                        onChange={e=>setSel((p:any)=>({...p,nextDeadlineNote:e.target.value}))} />
+                    </div>
                   </div>
                 </div>
               </div>
