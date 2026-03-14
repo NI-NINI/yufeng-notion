@@ -94,9 +94,9 @@ export interface Payment_ {
   caseAssignees: string[]
   caseContractAmount: number | null
   period: string
-  amount: number | null
-  year: number | null
-  quarter: string
+  amount: number | null       // 請款金額
+  ratePct: number | null      // 請款比例%
+  receivedAmount: number | null // 實收金額
   status: string
   receiptNo: string
   invoiceDate: string
