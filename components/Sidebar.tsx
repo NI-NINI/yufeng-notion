@@ -40,7 +40,7 @@ export default function Sidebar() {
               <div key={item.group}>
                 <div style={{
                   fontSize: 11, fontWeight: 700,
-                  color: groupActive ? 'rgba(255,255,255,.75)' : 'rgba(255,255,255,.35)',
+                  color: groupActive ? 'var(--tx)' : 'var(--tx3)',
                   letterSpacing: '.04em', padding: '8px 10px 3px',
                   display: 'flex', alignItems: 'center', gap: 6,
                 }}>

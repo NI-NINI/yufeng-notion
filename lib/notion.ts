@@ -112,6 +112,8 @@ export interface Payment_ {
   receiptNoteText: string
   extraBonusAmt: number | null
   extraBonusTarget: string
+  canInvoice: boolean
+  bonusQuarterSel: string
 }
 
 // ── helpers ────────────────────────────────────────────────────
@@ -271,6 +273,8 @@ export function toPayment(page: any, caseMap: Record<string, string> = {}, caseD
     receiptNoteText: text(page, '收據備註'),
     extraBonusAmt: num(page, '加碼獎金金額'),
     extraBonusTarget: text(page, '加碼獎金對象'),
+    canInvoice: checkbox_(page, '可請款'),
+    bonusQuarterSel: select_(page, '獎金配發季度'),
   }
 }
 
@@ -455,6 +459,19 @@ export async function updateCase(id: string, data: Partial<Case_>) {
   }
   if (data.progressNote !== undefined) props['進度'] = { rich_text: richText(data.progressNote) }
   if (data.redFlagNote !== undefined) props['紅燈備註'] = { rich_text: richText(data.redFlagNote ?? '') }
+  if (data.importantNote !== undefined) props['重要提醒'] = { rich_text: richText(data.importantNote ?? '') }
+  if (data.leadingTypeField !== undefined) props['領銜類型'] = { select: data.leadingTypeField ? { name: data.leadingTypeField } : null }
+  if (data.leadingFeeText !== undefined) props['領銜費'] = { rich_text: richText(data.leadingFeeText ?? '') }
+  if (data.companyShare !== undefined) props['公司分紅'] = { rich_text: richText(data.companyShare ?? '') }
+  // 日期欄位（前端 siteVisitDate, priceDate, staffDoneDate, actualDueDate 沒有對應 Notion 欄位，寫入進度備註）
+  // nextDeadline → 完成期限（承辦下一階段交件日，複用此欄位）
+  if ((data as any).nextDeadline !== undefined) props['完成期限'] = { date: (data as any).nextDeadline ? { start: (data as any).nextDeadline } : null }
+  if ((data as any).nextDeadlineNote !== undefined) {
+    const existing = data.progressNote ?? ''
+    if ((data as any).nextDeadlineNote) {
+      props['進度'] = { rich_text: richText(`【下一交件】${(data as any).nextDeadlineNote}`) }
+    }
+  }
   return notion.pages.update({ page_id: id, properties: props })
 }
 
@@ -487,5 +504,11 @@ export async function updatePayment(id: string, data: Partial<Payment_>) {
   if (data.invoiceDate !== undefined) props['請款日期'] = { date: data.invoiceDate ? { start: data.invoiceDate } : null }
   if (data.receivedDate !== undefined) props['收款日期'] = { date: data.receivedDate ? { start: data.receivedDate } : null }
   if (data.notes !== undefined) props['備註'] = { rich_text: richText(data.notes) }
+  if (data.payStatus !== undefined) props['付款狀態'] = { select: data.payStatus ? { name: data.payStatus } : null }
+  if (data.receiptNoteText !== undefined) props['收據備註'] = { rich_text: richText(data.receiptNoteText ?? '') }
+  if (data.extraBonusAmt !== undefined) props['加碼獎金金額'] = { number: data.extraBonusAmt }
+  if (data.extraBonusTarget !== undefined) props['加碼獎金對象'] = { rich_text: richText(data.extraBonusTarget ?? '') }
+  if ((data as any).canInvoice !== undefined) props['可請款'] = { checkbox: (data as any).canInvoice }
+  if ((data as any).bonusQuarterSel !== undefined) props['獎金配發季度'] = { select: (data as any).bonusQuarterSel ? { name: (data as any).bonusQuarterSel } : null }
   return notion.pages.update({ page_id: id, properties: props })
 }

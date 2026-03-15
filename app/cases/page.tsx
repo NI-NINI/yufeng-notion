@@ -285,7 +285,7 @@ function CasesInner() {
             <table>
               <thead><tr>
                 <th>#</th><th>類型</th><th>案件名稱</th><th>組別</th>
-                <th>承辦</th><th>狀態</th><th>順位</th><th>交件日</th><th>簽約金額</th><th></th>
+                <th>承辦</th><th>狀態</th><th>順位</th><th>下一交件日</th><th>服務費用</th><th></th>
               </tr></thead>
               <tbody>
                 {filtered.map(c => {
@@ -310,13 +310,14 @@ function CasesInner() {
                       <td>{statusDot(c.status)}</td>
                       <td><span className={`tg ${priCls[c.priority]||'tg-muted'}`}>{c.priority}</span></td>
                       <td>
-                        {c.dueDate ? (
-                          days !== null && days <= 3 ? (
-                            <span style={{color:'var(--rose)',fontSize:11,fontWeight:days<0?600:400}}>
-                              {days < 0 ? `逾期${Math.abs(days)}天` : `${days}天後`}
-                            </span>
-                          ) : <span className="muted">{fd(c.dueDate)}</span>
-                        ) : <span className="muted">—</span>}
+                        {c.nextDeadline ? (() => {
+                          const nd = dl(c.nextDeadline)
+                          return nd !== null && nd <= 7
+                            ? <span style={{color:nd<=3?'var(--rose)':'var(--amber)',fontSize:11,fontWeight:600}}>{nd}天</span>
+                            : <span className="muted">{fd(c.nextDeadline)}</span>
+                        })() : c.dueDate
+                          ? <span className="muted">{fd(c.dueDate)}</span>
+                          : <span className="muted">—</span>}
                       </td>
                       <td className="mono">{fmt(c.contractAmount)}</td>
                       <td onClick={e=>e.stopPropagation()}>
@@ -576,18 +577,20 @@ function CasesInner() {
               <div className="sec" style={{marginBottom:10}}>
                 <div className="sec-hd"><h3>日期資訊</h3></div>
                 <div className="sec-body">
-                  <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6,fontSize:12,marginBottom:12}}>
+                  <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:12}}>
                     {[
-                      {label:'交辦日期', val:sel.assignDate},
-                      {label:'現勘日期', val:sel.siteVisitDate},
-                      {label:'價格日期', val:sel.priceDate},
-                      {label:'預計出件', val:sel.dueDate},
-                      {label:'承辦完成', val:sel.staffDoneDate},
-                      {label:'實際出件', val:sel.actualDueDate},
-                    ].map(({label,val})=>(
-                      <div key={label} style={{display:'flex',justifyContent:'space-between',padding:'4px 8px',borderRadius:5,background:'var(--bgh)'}}>
-                        <span style={{color:'var(--tx3)'}}>{label}</span>
-                        <span style={{fontFamily:'var(--m)',fontWeight:600,color:val?'var(--tx)':'var(--tx3)'}}>{val?fd(val):'—'}</span>
+                      {label:'交辦日期', field:'assignDate'},
+                      {label:'現勘日期', field:'siteVisitDate'},
+                      {label:'價格日期', field:'priceDate'},
+                      {label:'預計出件', field:'dueDate'},
+                      {label:'承辦完成', field:'staffDoneDate'},
+                      {label:'實際出件', field:'actualDueDate'},
+                    ].map(({label,field})=>(
+                      <div key={field} className="fg">
+                        <label style={{fontSize:10,fontWeight:600,color:'var(--tx3)',textTransform:'uppercase',letterSpacing:'.04em'}}>{label}</label>
+                        <input type="date" className="fi" style={{fontSize:12}}
+                          value={(sel as any)[field]||''}
+                          onChange={e=>setSel((p:any)=>({...p,[field]:e.target.value}))} />
                       </div>
                     ))}
                   </div>

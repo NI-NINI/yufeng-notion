@@ -54,6 +54,7 @@ export default function ReceiptsPage() {
   const [extraBonusTarget, setExtraBonusTarget] = useState('')
   const [saving, setSaving] = useState(false)
   const [editingId, setEditingId] = useState<string|null>(null)
+  const [bonusQuarter, setBonusQuarter] = useState('')
 
   // 列表篩選
   const [listSearch, setListSearch] = useState('')
@@ -102,8 +103,13 @@ export default function ReceiptsPage() {
 
   // 獎金計算（僅「請款中列獎金」和「已收款」）
   const bonusReceipts = useMemo(() =>
-    payments.filter(p => p.status === '請款中列獎金' || p.status === '已收款' || p.payStatus === '請款中列獎金' || p.payStatus === '已收款')
-  , [payments])
+    payments.filter(p => {
+      const isBonus = p.status === '請款中列獎金' || p.status === '已收款' || p.payStatus === '請款中列獎金' || p.payStatus === '已收款'
+      if (!isBonus) return false
+      if (bonusQuarter && p.bonusQuarterSel !== bonusQuarter) return false
+      return true
+    })
+  , [payments, bonusQuarter])
 
   const bonusByTeam = useMemo(() => {
     const byTeam: Record<string, any[]> = { 妮組: [], 文組: [] }
@@ -146,7 +152,10 @@ export default function ReceiptsPage() {
         invoiceDate: issueDate,
         receivedDate: payStatus === '已收款' ? issueDate : undefined,
         status: payStatus,
+        payStatus: payStatus,
         notes: receiptNote,
+        canInvoice: true,
+        bonusQuarterSel: bonusQuarter || undefined,
       }
       const res = await fetch('/api/payments', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
       if (!res.ok) { alert('開立失敗'); return }
@@ -264,9 +273,10 @@ export default function ReceiptsPage() {
                         <span style={{fontSize:11,color:'var(--tx3)'}}>{p.ratePct ? p.ratePct+'%' : ''}</span>
                         <span style={{fontFamily:'var(--m)',fontSize:13,marginLeft:'auto'}}>{fmt(p.amount)}</span>
                         {p.receiptNo && <span style={{fontSize:10,color:'var(--tx3)'}}>已開：{p.receiptNo}</span>}
+                        {p.canInvoice && <span style={{fontSize:10,padding:'1px 5px',borderRadius:3,background:'#EEF7F2',color:'#2D7A59',fontWeight:600}}>可請款</span>}
                         {p.status && (
                           <span style={{fontSize:10,padding:'1px 5px',borderRadius:3,
-                            background:statusColor[p.status]+'20',color:statusColor[p.status]}}>
+                            background:(statusColor[p.status]||'#999')+'20',color:statusColor[p.status]||'var(--tx3)'}}>
                             {p.status}
                           </span>
                         )}
@@ -313,6 +323,20 @@ export default function ReceiptsPage() {
                 </div>
 
                 {/* 選擇「列獎金」或「已收款」時顯示加碼獎金 */}
+                {(payStatus==='請款中列獎金'||payStatus==='已收款') && (
+                  <div className="fg" style={{marginBottom:10}}>
+                    <label>獎金配發季度</label>
+                    <div style={{display:'flex',gap:6}}>
+                      {['Q1','Q2','Q3','Q4'].map(q=>(
+                        <button key={q} onClick={()=>setBonusQuarter(q)}
+                          style={{flex:1,padding:'6px',borderRadius:4,border:'1px solid var(--bd)',cursor:'pointer',fontSize:12,fontWeight:600,
+                            background:bonusQuarter===q?'var(--blue)':'var(--bg)',color:bonusQuarter===q?'#fff':'var(--tx2)'}}>
+                          {q}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 {(payStatus==='請款中列獎金'||payStatus==='已收款') && (
                   <div style={{padding:12,borderRadius:8,background:'color-mix(in srgb,#f59e0b 8%,transparent)',border:'1px solid color-mix(in srgb,#f59e0b 25%,transparent)',marginBottom:10}}>
                     <div style={{fontSize:11,fontWeight:700,color:'#b45309',marginBottom:8}}>加碼獎金（選填）</div>
