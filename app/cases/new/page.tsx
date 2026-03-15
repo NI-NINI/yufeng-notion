@@ -34,11 +34,15 @@ const emptyForm = () => ({
   zhDigital: false, zhDigitalQty: '1', zhDigitalCopies: '1',
   zhCD: false, zhCDQty: '1', zhCDCopies: '1',
   zhNoSealAbstract: false, zhNoSealAbstractQty: '1', zhNoSealAbstractCopies: '1',
+  zhPresentation: false, zhPresentationDate: '',
+  zhCountDate: '', zhAbstractDate: '', zhReportDate: '',
+  zhDigitalDate: '', zhCDDate: '', zhNoSealAbstractDate: '',
   enCount: false, enCountQty: '1', enCountCopies: '1',
   enAbstract: false, enAbstractQty: '1', enAbstractCopies: '1',
   enReport: false, enReportQty: '1', enReportCopies: '1',
   enDigital: false, enDigitalQty: '1', enDigitalCopies: '1',
   enCD: false, enCDQty: '1', enCDCopies: '1',
+  enCountDate: '', enAbstractDate: '', enReportDate: '', enDigitalDate: '', enCDDate: '',
   importantNote: '',
   contactIdx: 0, contactPhone: '', contactMobile: '',
 })
@@ -137,8 +141,27 @@ function CasesNewInner() {
       dueDate: form.dueDate,
       progressNote: form.importantNote ? `【重要提醒】${form.importantNote}` : '',
       status: '未開始',
-      // 把費用分期資訊寫入進度備註
       documentNotes: leadingNote,
+      // 日期
+      assignDate2: form.assignDate,
+      siteVisitDate: form.siteVisitDate,
+      priceDate: form.priceDate,
+      staffDoneDate: form.staffDoneDate,
+      actualDueDate: form.actualDueDate,
+      // 繳交資訊
+      deliveryInfo: leadingNote,
+      zhCount: form.zhCount, zhCountDate: form.zhCountDate,
+      zhAbstract: form.zhAbstract, zhAbstractDate: form.zhAbstractDate,
+      zhReport: form.zhReport, zhReportDate: form.zhReportDate,
+      zhPresentation: form.zhPresentation, zhPresentationDate: form.zhPresentationDate,
+      zhDigital: form.zhDigital, zhDigitalDate: form.zhDigitalDate,
+      zhCD: form.zhCD, zhCDDate: form.zhCDDate,
+      zhNoSealAbstract: form.zhNoSealAbstract, zhNoSealAbstractDate: form.zhNoSealAbstractDate,
+      enCount: form.enCount, enCountDate: form.enCountDate,
+      enAbstract: form.enAbstract, enAbstractDate: form.enAbstractDate,
+      enReport: form.enReport, enReportDate: form.enReportDate,
+      enDigital: form.enDigital, enDigitalDate: form.enDigitalDate,
+      enCD: form.enCD, enCDDate: form.enCDDate,
     }
     try {
       const res = await fetch('/api/cases', {
@@ -158,16 +181,25 @@ function CasesNewInner() {
     } finally { setSaving(false) }
   }
 
-  const SubRow = ({ label, ck, setck, qty, setqty, cop, setcop }: any) => (
-    <div style={{ display: 'grid', gridTemplateColumns: '20px 1fr 70px 70px', gap: 8, alignItems: 'center', marginBottom: 5 }}>
-      <input type="checkbox" checked={ck} onChange={e => setck(e.target.checked)} style={{ accentColor: 'var(--blue)' }} />
-      <span style={{ fontSize: 12, color: ck ? 'var(--tx)' : 'var(--tx3)' }}>{label}</span>
-      <input className="fi" type="number" min="1" placeholder="式" disabled={!ck}
-        value={qty} onChange={e => setqty(e.target.value)}
-        style={{ padding: '3px 5px', fontSize: 11, opacity: ck ? 1 : 0.4 }} />
-      <input className="fi" type="number" min="1" placeholder="份" disabled={!ck}
-        value={cop} onChange={e => setcop(e.target.value)}
-        style={{ padding: '3px 5px', fontSize: 11, opacity: ck ? 1 : 0.4 }} />
+  const SubRow = ({ label, ck, setck, qty, setqty, cop, setcop, date, setdate }: any) => (
+    <div style={{ marginBottom: 8 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '20px 1fr 60px 60px', gap: 6, alignItems: 'center' }}>
+        <input type="checkbox" checked={ck} onChange={e => setck(e.target.checked)} style={{ accentColor: 'var(--blue)' }} />
+        <span style={{ fontSize: 12, color: ck ? 'var(--tx)' : 'var(--tx3)', fontWeight: ck ? 600 : 400 }}>{label}</span>
+        {qty !== undefined && <input className="fi" type="number" min="1" placeholder="式" disabled={!ck}
+          value={qty} onChange={e => setqty(e.target.value)}
+          style={{ padding: '3px 5px', fontSize: 11, opacity: ck ? 1 : 0.4 }} />}
+        {cop !== undefined && <input className="fi" type="number" min="1" placeholder="份" disabled={!ck}
+          value={cop} onChange={e => setcop(e.target.value)}
+          style={{ padding: '3px 5px', fontSize: 11, opacity: ck ? 1 : 0.4 }} />}
+      </div>
+      {ck && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4, paddingLeft: 26 }}>
+          <span style={{ fontSize: 10, color: 'var(--tx3)', flexShrink: 0 }}>交件日</span>
+          <input type="date" className="fi" style={{ fontSize: 11, padding: '2px 6px', flex: 1 }}
+            value={date || ''} onChange={e => setdate && setdate(e.target.value)} />
+        </div>
+      )}
     </div>
   )
 

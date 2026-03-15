@@ -88,6 +88,27 @@ export interface Case_ {
   companyShare: string      // Notion '公司分紅'
   difficultyScore: number | null
   completionScore: number | null
+  assignDate2: string      // 交辦日期
+  siteVisitDate: string    // 現勘日期
+  priceDate: string        // 價格日期
+  staffDoneDate: string    // 承辦完成日
+  actualDueDate: string    // 實際出件日2
+  nextDeadline: string     // 下一交件日
+  nextDeadlineNote: string // 交件備註
+  deliveryInfo: string     // 繳交資訊摘要
+  // 繳交勾選欄
+  zhCount: boolean; zhCountDate: string
+  zhAbstract: boolean; zhAbstractDate: string
+  zhReport: boolean; zhReportDate: string
+  zhPresentation: boolean; zhPresentationDate: string
+  zhDigital: boolean; zhDigitalDate: string
+  zhCD: boolean; zhCDDate: string
+  zhNoSealAbstract: boolean; zhNoSealAbstractDate: string
+  enCount: boolean; enCountDate: string
+  enAbstract: boolean; enAbstractDate: string
+  enReport: boolean; enReportDate: string
+  enDigital: boolean; enDigitalDate: string
+  enCD: boolean; enCDDate: string
   updatedAt: string
 }
 
@@ -243,6 +264,26 @@ export function toCase(page: any, clientMap: Record<string, string> = {}): Case_
     companyShare: text(page, '公司分紅'),
     difficultyScore: num(page, '案件難度'),
     completionScore: num(page, '案件完成度'),
+    assignDate2: date_(page, '交辦日期'),
+    siteVisitDate: date_(page, '現勘日期'),
+    priceDate: date_(page, '價格日期'),
+    staffDoneDate: date_(page, '承辦完成日'),
+    actualDueDate: date_(page, '實際出件日2'),
+    nextDeadline: date_(page, '下一交件日'),
+    nextDeadlineNote: text(page, '交件備註'),
+    deliveryInfo: text(page, '繳交資訊'),
+    zhCount: checkbox_(page, '中文數字'), zhCountDate: date_(page, '中文數字日期'),
+    zhAbstract: checkbox_(page, '中文摘要'), zhAbstractDate: date_(page, '中文摘要日期'),
+    zhReport: checkbox_(page, '中文報告書'), zhReportDate: date_(page, '中文報告書日期'),
+    zhPresentation: checkbox_(page, '中文簡報'), zhPresentationDate: date_(page, '中文簡報日期'),
+    zhDigital: checkbox_(page, '中文電子檔'), zhDigitalDate: date_(page, '中文電子檔日期'),
+    zhCD: checkbox_(page, '中文光碟'), zhCDDate: date_(page, '中文光碟日期'),
+    zhNoSealAbstract: checkbox_(page, '中文免簽摘要'), zhNoSealAbstractDate: date_(page, '中文免簽摘要日期'),
+    enCount: checkbox_(page, '英文數字'), enCountDate: date_(page, '英文數字日期'),
+    enAbstract: checkbox_(page, '英文摘要'), enAbstractDate: date_(page, '英文摘要日期'),
+    enReport: checkbox_(page, '英文報告書'), enReportDate: date_(page, '英文報告書日期'),
+    enDigital: checkbox_(page, '英文電子檔'), enDigitalDate: date_(page, '英文電子檔日期'),
+    enCD: checkbox_(page, '英文光碟'), enCDDate: date_(page, '英文光碟日期'),
     updatedAt: prop(page, '最後更新')?.last_edited_time ?? '',
   }
 }
@@ -432,6 +473,37 @@ export async function createCase(data: Partial<Case_>) {
   if (data.completionScore !== undefined && data.completionScore !== null) props['案件完成度'] = { number: data.completionScore }
   if (data.progressNote) props['進度'] = { rich_text: richText(data.progressNote) }
   if (data.redFlagNote !== undefined) props['紅燈備註'] = { rich_text: richText(data.redFlagNote ?? '') }
+  if (data.assignDate2) props['交辦日期'] = { date: { start: data.assignDate2 } }
+  if (data.siteVisitDate) props['現勘日期'] = { date: { start: data.siteVisitDate } }
+  if (data.priceDate) props['價格日期'] = { date: { start: data.priceDate } }
+  if (data.staffDoneDate) props['承辦完成日'] = { date: { start: data.staffDoneDate } }
+  if (data.actualDueDate) props['實際出件日2'] = { date: { start: data.actualDueDate } }
+  if (data.nextDeadline) props['下一交件日'] = { date: { start: data.nextDeadline } }
+  if (data.deliveryInfo) props['繳交資訊'] = { rich_text: richText(data.deliveryInfo) }
+  if (data.zhCount) props['中文數字'] = { checkbox: data.zhCount }
+  if (data.zhCountDate) props['中文數字日期'] = { date: { start: data.zhCountDate } }
+  if (data.zhAbstract) props['中文摘要'] = { checkbox: data.zhAbstract }
+  if (data.zhAbstractDate) props['中文摘要日期'] = { date: { start: data.zhAbstractDate } }
+  if (data.zhReport) props['中文報告書'] = { checkbox: data.zhReport }
+  if (data.zhReportDate) props['中文報告書日期'] = { date: { start: data.zhReportDate } }
+  if (data.zhPresentation) props['中文簡報'] = { checkbox: data.zhPresentation }
+  if (data.zhPresentationDate) props['中文簡報日期'] = { date: { start: data.zhPresentationDate } }
+  if (data.zhDigital) props['中文電子檔'] = { checkbox: data.zhDigital }
+  if (data.zhDigitalDate) props['中文電子檔日期'] = { date: { start: data.zhDigitalDate } }
+  if (data.zhCD) props['中文光碟'] = { checkbox: data.zhCD }
+  if (data.zhCDDate) props['中文光碟日期'] = { date: { start: data.zhCDDate } }
+  if (data.zhNoSealAbstract) props['中文免簽摘要'] = { checkbox: data.zhNoSealAbstract }
+  if (data.zhNoSealAbstractDate) props['中文免簽摘要日期'] = { date: { start: data.zhNoSealAbstractDate } }
+  if (data.enCount) props['英文數字'] = { checkbox: data.enCount }
+  if (data.enCountDate) props['英文數字日期'] = { date: { start: data.enCountDate } }
+  if (data.enAbstract) props['英文摘要'] = { checkbox: data.enAbstract }
+  if (data.enAbstractDate) props['英文摘要日期'] = { date: { start: data.enAbstractDate } }
+  if (data.enReport) props['英文報告書'] = { checkbox: data.enReport }
+  if (data.enReportDate) props['英文報告書日期'] = { date: { start: data.enReportDate } }
+  if (data.enDigital) props['英文電子檔'] = { checkbox: data.enDigital }
+  if (data.enDigitalDate) props['英文電子檔日期'] = { date: { start: data.enDigitalDate } }
+  if (data.enCD) props['英文光碟'] = { checkbox: data.enCD }
+  if (data.enCDDate) props['英文光碟日期'] = { date: { start: data.enCDDate } }
   return notion.pages.create({ parent: { database_id: DB_IDS.cases }, properties: props })
 }
 
@@ -465,13 +537,29 @@ export async function updateCase(id: string, data: Partial<Case_>) {
   if (data.companyShare !== undefined) props['公司分紅'] = { rich_text: richText(data.companyShare ?? '') }
   // 日期欄位（前端 siteVisitDate, priceDate, staffDoneDate, actualDueDate 沒有對應 Notion 欄位，寫入進度備註）
   // nextDeadline → 完成期限（承辦下一階段交件日，複用此欄位）
-  if ((data as any).nextDeadline !== undefined) props['完成期限'] = { date: (data as any).nextDeadline ? { start: (data as any).nextDeadline } : null }
-  if ((data as any).nextDeadlineNote !== undefined) {
-    const existing = data.progressNote ?? ''
-    if ((data as any).nextDeadlineNote) {
-      props['進度'] = { rich_text: richText(`【下一交件】${(data as any).nextDeadlineNote}`) }
-    }
-  }
+  if (data.assignDate2 !== undefined) props['交辦日期'] = { date: data.assignDate2 ? { start: data.assignDate2 } : null }
+  if (data.siteVisitDate !== undefined) props['現勘日期'] = { date: data.siteVisitDate ? { start: data.siteVisitDate } : null }
+  if (data.priceDate !== undefined) props['價格日期'] = { date: data.priceDate ? { start: data.priceDate } : null }
+  if (data.staffDoneDate !== undefined) props['承辦完成日'] = { date: data.staffDoneDate ? { start: data.staffDoneDate } : null }
+  if (data.actualDueDate !== undefined) props['實際出件日2'] = { date: data.actualDueDate ? { start: data.actualDueDate } : null }
+  if (data.nextDeadline !== undefined) props['下一交件日'] = { date: data.nextDeadline ? { start: data.nextDeadline } : null }
+  if (data.nextDeadlineNote !== undefined) props['交件備註'] = { rich_text: richText(data.nextDeadlineNote ?? '') }
+  if (data.deliveryInfo !== undefined) props['繳交資訊'] = { rich_text: richText(data.deliveryInfo ?? '') }
+  // 繳交勾選
+  const ck = (v: boolean | undefined, n: string) => { if (v !== undefined) props[n] = { checkbox: v } }
+  const dt = (v: string | undefined, n: string) => { if (v !== undefined) props[n] = { date: v ? { start: v } : null } }
+  ck(data.zhCount, '中文數字'); dt(data.zhCountDate, '中文數字日期')
+  ck(data.zhAbstract, '中文摘要'); dt(data.zhAbstractDate, '中文摘要日期')
+  ck(data.zhReport, '中文報告書'); dt(data.zhReportDate, '中文報告書日期')
+  ck(data.zhPresentation, '中文簡報'); dt(data.zhPresentationDate, '中文簡報日期')
+  ck(data.zhDigital, '中文電子檔'); dt(data.zhDigitalDate, '中文電子檔日期')
+  ck(data.zhCD, '中文光碟'); dt(data.zhCDDate, '中文光碟日期')
+  ck(data.zhNoSealAbstract, '中文免簽摘要'); dt(data.zhNoSealAbstractDate, '中文免簽摘要日期')
+  ck(data.enCount, '英文數字'); dt(data.enCountDate, '英文數字日期')
+  ck(data.enAbstract, '英文摘要'); dt(data.enAbstractDate, '英文摘要日期')
+  ck(data.enReport, '英文報告書'); dt(data.enReportDate, '英文報告書日期')
+  ck(data.enDigital, '英文電子檔'); dt(data.enDigitalDate, '英文電子檔日期')
+  ck(data.enCD, '英文光碟'); dt(data.enCDDate, '英文光碟日期')
   return notion.pages.update({ page_id: id, properties: props })
 }
 

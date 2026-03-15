@@ -83,6 +83,7 @@ function CasesInner() {
   const [payments, setPayments] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
+  const [mainTab, setMainTab] = useState<'list'|'upcoming'>('list')
   const [fStatus, setFStatus] = useState('')
   const [fTeam, setFTeam] = useState('')
   const [fType, setFType] = useState('')
@@ -251,6 +252,14 @@ function CasesInner() {
         <div className="page-hd">
           <h1>案件管理</h1>
           <div className="page-hd-r">
+            <div style={{display:'flex',borderBottom:'none',gap:2}}>
+              {(['list','upcoming'] as const).map(t=>(
+                <button key={t} onClick={()=>setMainTab(t)}
+                  className={`btn btn-sm ${mainTab===t?'btn-primary':'btn-ghost'}`}>
+                  {t==='list'?'案件總覽':'近兩週出件'}
+                </button>
+              ))}
+            </div>
             <input className="search-input" placeholder="搜尋案件…" value={search} onChange={e=>setSearch(e.target.value)} />
             <button className="btn btn-primary btn-sm" onClick={openNew}>＋ 新增</button>
           </div>
@@ -278,7 +287,55 @@ function CasesInner() {
           </span>
         </div>
 
-        <div className="scroll-area">
+        {/* ── 近兩週出件 Tab ── */}
+        {mainTab==='upcoming' && (() => {
+          const now = Date.now()
+          const two_weeks = 14 * 864e5
+          const upcoming = cases.filter(c => {
+            const d = c.nextDeadline || c.dueDate
+            if (!d) return false
+            const ms = new Date(d).getTime() - now
+            return ms <= two_weeks
+          }).sort((a,b) => {
+            const da = new Date(a.nextDeadline||a.dueDate||'9999').getTime()
+            const db = new Date(b.nextDeadline||b.dueDate||'9999').getTime()
+            return da - db
+          })
+          const fd2 = (d:string) => { if(!d) return '—'; const t=new Date(d); return `${t.getMonth()+1}/${t.getDate()}` }
+          return (
+            <div className="scroll-area">
+              <div style={{padding:'8px 16px',borderBottom:'1px solid var(--bd)',background:'var(--bgh)',fontSize:11,color:'var(--tx3)'}}>
+                依「下一交件日」或「預計出件日」判斷，共 <b style={{color:'var(--tx)'}}>{upcoming.length}</b> 件
+              </div>
+              <table><thead><tr>
+                <th>類型</th><th>案件名稱</th><th>委託單位</th><th>組別</th><th>承辦</th><th>下一交件日</th><th>交件備註</th>
+              </tr></thead><tbody>
+                {upcoming.map(c=>{
+                  const d = c.nextDeadline||c.dueDate
+                  const days = d ? Math.ceil((new Date(d).getTime()-now)/864e5) : null
+                  const isUrgent = days !== null && days <= 3
+                  return (
+                    <tr key={c.id} onClick={()=>openPanel(c)}>
+                      <td>{typeBadge(c.caseType||'其他')}</td>
+                      <td><b>{c.name}</b></td>
+                      <td className="muted">{c.clientName||'—'}</td>
+                      <td className="muted">{c.team}</td>
+                      <td><div style={{display:'flex',gap:3}}>{(c.assignees||[]).map((a:string)=><span key={a} className="av" style={{background:uc(a)}}>{a[0]}</span>)}</div></td>
+                      <td>
+                        <span style={{color:isUrgent?'var(--rose)':days!==null&&days<=7?'var(--amber)':'var(--tx)',fontWeight:isUrgent?700:400,fontSize:12}}>
+                          {fd2(d)}
+                          {days !== null && <span style={{marginLeft:5,fontSize:10}}>({days<0?`逾期${Math.abs(days)}天`:`${days}天`})</span>}
+                        </span>
+                      </td>
+                      <td className="muted" style={{fontSize:11}}>{c.nextDeadlineNote||c.deliveryInfo||'—'}</td>
+                    </tr>
+                  )
+                })}
+              </tbody></table>
+            </div>
+          )
+        })()}
+        {mainTab==='list' && <div className="scroll-area">
           {loading ? <div className="loading"><div className="spin"/><span>載入中…</span></div>
           : filtered.length===0 ? <div className="loading">無符合條件的案件</div>
           : (
@@ -333,7 +390,7 @@ function CasesInner() {
               </tbody>
             </table>
           )}
-        </div>
+        </div>}
       </div>
 
       {/* ─── DETAIL PANEL ─── */}
