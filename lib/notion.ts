@@ -233,7 +233,7 @@ export function toCase(page: any, clientMap: Record<string, string> = {}): Case_
     clientName: clientNameText || clientMap[clientId] || '',
     caseType: select_(page, '估價目的') || select_(page, '案件類型') || '',
     address: text(page, '標的物地址') || text(page, '標的地址'),
-    contractAmount: num(page, '簽約金額'),
+    contractAmount: parseFloat(text(page, '服務費用')) || null,
     discountRate: num(page, '折扣比例'),
     contractDate: date_(page, '簽約日期'),
     plannedDate: date_(page, '預定完成日'),

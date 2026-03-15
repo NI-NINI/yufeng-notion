@@ -37,6 +37,13 @@ export async function POST(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
   try {
     const { id, ...data } = await req.json()
+    // 同 POST：前端字段名轉換
+    if (data.leadingType && !data.leadingTypeField) data.leadingTypeField = data.leadingType
+    if (data.leadingFee && !data.leadingFeeText) data.leadingFeeText = String(data.leadingFee)
+    // contractAmount 確保是字串存入服務費用
+    if (data.contractAmount !== undefined) {
+      data.contractAmount = data.contractAmount  // notation.ts 負責轉換
+    }
     const page = await updateCase(id, data)
     return NextResponse.json(page)
   } catch (e: any) {

@@ -197,7 +197,7 @@ function CasesNewInner() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4, paddingLeft: 26 }}>
           <span style={{ fontSize: 10, color: 'var(--tx3)', flexShrink: 0 }}>交件日</span>
           <input type="date" className="fi" style={{ fontSize: 11, padding: '2px 6px', flex: 1 }}
-            value={date || ''} onChange={e => setdate && setdate(e.target.value)} />
+            value={date ?? ''} onChange={e => { if(setdate) setdate(e.target.value) }} />
         </div>
       )}
     </div>
@@ -364,12 +364,13 @@ function CasesNewInner() {
                       <span style={{ fontSize: 10, color: 'var(--tx3)', fontWeight: 700 }}>式</span>
                       <span style={{ fontSize: 10, color: 'var(--tx3)', fontWeight: 700 }}>份</span>
                     </div>
-                    <SubRow label="數字" ck={form.zhCount} setck={u('zhCount')} qty={form.zhCountQty} setqty={u('zhCountQty')} cop={form.zhCountCopies} setcop={u('zhCountCopies')} />
-                    <SubRow label="摘要" ck={form.zhAbstract} setck={u('zhAbstract')} qty={form.zhAbstractQty} setqty={u('zhAbstractQty')} cop={form.zhAbstractCopies} setcop={u('zhAbstractCopies')} />
-                    <SubRow label="報告書" ck={form.zhReport} setck={u('zhReport')} qty={form.zhReportQty} setqty={u('zhReportQty')} cop={form.zhReportCopies} setcop={u('zhReportCopies')} />
-                    <SubRow label="電子檔" ck={form.zhDigital} setck={u('zhDigital')} qty={form.zhDigitalQty} setqty={u('zhDigitalQty')} cop={form.zhDigitalCopies} setcop={u('zhDigitalCopies')} />
-                    <SubRow label="光碟" ck={form.zhCD} setck={u('zhCD')} qty={form.zhCDQty} setqty={u('zhCDQty')} cop={form.zhCDCopies} setcop={u('zhCDCopies')} />
-                    <SubRow label="免簽證摘要" ck={form.zhNoSealAbstract} setck={u('zhNoSealAbstract')} qty={form.zhNoSealAbstractQty} setqty={u('zhNoSealAbstractQty')} cop={form.zhNoSealAbstractCopies} setcop={u('zhNoSealAbstractCopies')} />
+                    <SubRow label="數字" ck={form.zhCount} setck={u('zhCount')} qty={form.zhCountQty} setqty={u('zhCountQty')} cop={form.zhCountCopies} setcop={u('zhCountCopies')} date={form.zhCountDate} setdate={u('zhCountDate')} />
+                    <SubRow label="摘要" ck={form.zhAbstract} setck={u('zhAbstract')} qty={form.zhAbstractQty} setqty={u('zhAbstractQty')} cop={form.zhAbstractCopies} setcop={u('zhAbstractCopies')} date={form.zhAbstractDate} setdate={u('zhAbstractDate')} />
+                    <SubRow label="報告書" ck={form.zhReport} setck={u('zhReport')} qty={form.zhReportQty} setqty={u('zhReportQty')} cop={form.zhReportCopies} setcop={u('zhReportCopies')} date={form.zhReportDate} setdate={u('zhReportDate')} />
+                    <SubRow label="簡報" ck={form.zhPresentation} setck={u('zhPresentation')} date={form.zhPresentationDate} setdate={u('zhPresentationDate')} />
+                    <SubRow label="電子檔" ck={form.zhDigital} setck={u('zhDigital')} qty={form.zhDigitalQty} setqty={u('zhDigitalQty')} cop={form.zhDigitalCopies} setcop={u('zhDigitalCopies')} date={form.zhDigitalDate} setdate={u('zhDigitalDate')} />
+                    <SubRow label="光碟" ck={form.zhCD} setck={u('zhCD')} qty={form.zhCDQty} setqty={u('zhCDQty')} cop={form.zhCDCopies} setcop={u('zhCDCopies')} date={form.zhCDDate} setdate={u('zhCDDate')} />
+                    <SubRow label="免簽證摘要" ck={form.zhNoSealAbstract} setck={u('zhNoSealAbstract')} qty={form.zhNoSealAbstractQty} setqty={u('zhNoSealAbstractQty')} cop={form.zhNoSealAbstractCopies} setcop={u('zhNoSealAbstractCopies')} date={form.zhNoSealAbstractDate} setdate={u('zhNoSealAbstractDate')} />
                   </div>
                   <div>
                     <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 6, color: 'var(--tx2)' }}>英文</div>
@@ -378,11 +379,11 @@ function CasesNewInner() {
                       <span style={{ fontSize: 10, color: 'var(--tx3)', fontWeight: 700 }}>式</span>
                       <span style={{ fontSize: 10, color: 'var(--tx3)', fontWeight: 700 }}>份</span>
                     </div>
-                    <SubRow label="數字" ck={form.enCount} setck={u('enCount')} qty={form.enCountQty} setqty={u('enCountQty')} cop={form.enCountCopies} setcop={u('enCountCopies')} />
-                    <SubRow label="摘要" ck={form.enAbstract} setck={u('enAbstract')} qty={form.enAbstractQty} setqty={u('enAbstractQty')} cop={form.enAbstractCopies} setcop={u('enAbstractCopies')} />
-                    <SubRow label="報告書" ck={form.enReport} setck={u('enReport')} qty={form.enReportQty} setqty={u('enReportQty')} cop={form.enReportCopies} setcop={u('enReportCopies')} />
-                    <SubRow label="電子檔" ck={form.enDigital} setck={u('enDigital')} qty={form.enDigitalQty} setqty={u('enDigitalQty')} cop={form.enDigitalCopies} setcop={u('enDigitalCopies')} />
-                    <SubRow label="光碟" ck={form.enCD} setck={u('enCD')} qty={form.enCDQty} setqty={u('enCDQty')} cop={form.enCDCopies} setcop={u('enCDCopies')} />
+                    <SubRow label="數字" ck={form.enCount} setck={u('enCount')} qty={form.enCountQty} setqty={u('enCountQty')} cop={form.enCountCopies} setcop={u('enCountCopies')} date={form.enCountDate} setdate={u('enCountDate')} />
+                    <SubRow label="摘要" ck={form.enAbstract} setck={u('enAbstract')} qty={form.enAbstractQty} setqty={u('enAbstractQty')} cop={form.enAbstractCopies} setcop={u('enAbstractCopies')} date={form.enAbstractDate} setdate={u('enAbstractDate')} />
+                    <SubRow label="報告書" ck={form.enReport} setck={u('enReport')} qty={form.enReportQty} setqty={u('enReportQty')} cop={form.enReportCopies} setcop={u('enReportCopies')} date={form.enReportDate} setdate={u('enReportDate')} />
+                    <SubRow label="電子檔" ck={form.enDigital} setck={u('enDigital')} qty={form.enDigitalQty} setqty={u('enDigitalQty')} cop={form.enDigitalCopies} setcop={u('enDigitalCopies')} date={form.enDigitalDate} setdate={u('enDigitalDate')} />
+                    <SubRow label="光碟" ck={form.enCD} setck={u('enCD')} qty={form.enCDQty} setqty={u('enCDQty')} cop={form.enCDCopies} setcop={u('enCDCopies')} date={form.enCDDate} setdate={u('enCDDate')} />
                   </div>
                 </div>
               </div>

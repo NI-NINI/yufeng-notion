@@ -292,10 +292,11 @@ function CasesInner() {
           const now = Date.now()
           const two_weeks = 14 * 864e5
           const upcoming = cases.filter(c => {
+            if (c.status !== '進行中') return false
             const d = c.nextDeadline || c.dueDate
             if (!d) return false
             const ms = new Date(d).getTime() - now
-            return ms <= two_weeks
+            return ms >= 0 && ms <= two_weeks
           }).sort((a,b) => {
             const da = new Date(a.nextDeadline||a.dueDate||'9999').getTime()
             const db = new Date(b.nextDeadline||b.dueDate||'9999').getTime()
@@ -324,7 +325,7 @@ function CasesInner() {
                       <td>
                         <span style={{color:isUrgent?'var(--rose)':days!==null&&days<=7?'var(--amber)':'var(--tx)',fontWeight:isUrgent?700:400,fontSize:12}}>
                           {fd2(d)}
-                          {days !== null && <span style={{marginLeft:5,fontSize:10}}>({days<0?`逾期${Math.abs(days)}天`:`${days}天`})</span>}
+                          {days !== null && <span style={{marginLeft:5,fontSize:10}}>({days<0?`已過${Math.abs(days)}天`:`${days}天`})</span>}
                         </span>
                       </td>
                       <td className="muted" style={{fontSize:11}}>{c.nextDeadlineNote||c.deliveryInfo||'—'}</td>
@@ -492,7 +493,7 @@ function CasesInner() {
                   <input type="date" className="fi" style={{width:'auto'}} value={sel.dueDate||''} onChange={e=>setSel((p:any)=>({...p,dueDate:e.target.value}))} />
                   {sel.dueDate && dl(sel.dueDate) !== null && dl(sel.dueDate)! <= 3 && (
                     <span className="tg tg-rose" style={{fontSize:10}}>
-                      {dl(sel.dueDate)! < 0 ? `逾期${Math.abs(dl(sel.dueDate)!)}天` : `${dl(sel.dueDate)}天後`}
+                      {dl(sel.dueDate)! < 0 ? `超時${Math.abs(dl(sel.dueDate)!)}天` : `${dl(sel.dueDate)}天後`}
                     </span>
                   )}
                 </div>
