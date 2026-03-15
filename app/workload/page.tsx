@@ -164,7 +164,7 @@ export default function WorkloadPage() {
   const staffStats = useMemo(() => STAFF.map(s => {
     const myCases   = cases.filter(c => (c.assignees || []).includes(s.name))
     const myActive  = myCases.filter(c => c.status === '進行中')
-    const load      = myActive.reduce((n: number, c: any) => n + (parseFloat(c.difficulty) || 0), 0)
+    const load      = myActive.reduce((n: number, c: any) => n + (parseFloat(c.difficultyScore) || parseFloat(c.difficulty) || 0), 0)
     const fee       = myCases.reduce((n: number, c: any) => n + (parseFloat(c.contractAmount) || 0), 0)
     const activeNames = myActive.slice(0, 5).map((c: any) => c.name || '—').join('\n')
     const loadTip   = `${s.short} 負荷值 ${load} pt\n進行中 ${myActive.length} 件${myActive.length > 0 ? '\n' + activeNames : ''}`

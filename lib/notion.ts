@@ -245,7 +245,7 @@ export function toCase(page: any, clientMap: Record<string, string> = {}): Case_
     priority: select_(page, '順位'),
     assignDate: date_(page, '派件日'),
     dueDate: date_(page, '預計交件日') || date_(page, '出件期限'),
-    difficulty: select_(page, '案件難度'),
+    difficulty: String(num(page, '案件難度') || ''),  // number field
     stuckReason: text(page, '擱淺原因'),
     progressNote: text(page, '進度備註') || text(page, '進度'),
     qualityScore: num(page, '品質分數'),
