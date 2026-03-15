@@ -462,7 +462,7 @@ export async function createCase(data: Partial<Case_>) {
   if (data.appraisers?.length) props['簽證(負責)估價師'] = { multi_select: data.appraisers.map(n => ({ name: n })) }
   if (data.status) props['案件狀態'] = { select: { name: data.status } }
   if (data.priority) props['順位'] = { select: { name: data.priority } }
-  if (data.assignDate) props['完成期限'] = { date: { start: data.assignDate } }
+  // assignDate 不再寫入完成期限（只寫交辦日期）
   if (data.dueDate) props['出件期限'] = { date: { start: data.dueDate } }
   if (data.contractAmount) props['服務費用'] = { rich_text: richText(String(data.contractAmount)) }
   if (data.leadingTypeField) props['領銜類型'] = { select: { name: data.leadingTypeField } }
@@ -504,6 +504,25 @@ export async function createCase(data: Partial<Case_>) {
   if (data.enDigitalDate) props['英文電子檔日期'] = { date: { start: data.enDigitalDate } }
   if (data.enCD) props['英文光碟'] = { checkbox: data.enCD }
   if (data.enCDDate) props['英文光碟日期'] = { date: { start: data.enCDDate } }
+  // 承辦窗口
+  if ((data as any).contactWindowName) props['承辦窗口'] = { rich_text: richText((data as any).contactWindowName) }
+  if ((data as any).contactWindowPhone) props['承辦窗口電話'] = { rich_text: richText((data as any).contactWindowPhone) }
+  // 式份（合併文字，如「2式3份」）
+  const qcText = (key: string, notionField: string) => {
+    if ((data as any)[key]) props[notionField] = { rich_text: richText((data as any)[key]) }
+  }
+  qcText('zhCountQC', '中文數字式份')
+  qcText('zhAbstractQC', '中文摘要式份')
+  qcText('zhReportQC', '中文報告書式份')
+  qcText('zhPresentationQC', '中文簡報式份')
+  qcText('zhDigitalQC', '中文電子檔式份')
+  qcText('zhCDQC', '中文光碟式份')
+  qcText('zhNoSealAbstractQC', '中文免簽摘要式份')
+  qcText('enCountQC', '英文數字式份')
+  qcText('enAbstractQC', '英文摘要式份')
+  qcText('enReportQC', '英文報告書式份')
+  qcText('enDigitalQC', '英文電子檔式份')
+  qcText('enCDQC', '英文光碟式份')
   return notion.pages.create({ parent: { database_id: DB_IDS.cases }, properties: props })
 }
 

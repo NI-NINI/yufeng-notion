@@ -125,10 +125,24 @@ function CasesNewInner() {
       ? `非領銜：公司分紅30%=${companyShare.toLocaleString()}元；服務費用100%分期:${periodsNote}`
       : `服務費用分期:${periodsNote}`
 
+    // 組裝式份文字 (如 "2式3份")
+    const qc = (qty: string, copies: string, checked: boolean) => {
+      if (!checked) return ''
+      const q = parseInt(qty) || 1, c = parseInt(copies) || 1
+      return `${q}式${c}份`
+    }
+
+    // 組裝承辦窗口資訊
+    const selectedClient = clients.find((c: any) => c.id === form.clientId)
+    const ctIdx = form.contactIdx
+    const contactName = selectedClient ? (selectedClient as any)[`contact${ctIdx + 1}Name`] || '' : ''
+    const contactTitle = selectedClient ? (selectedClient as any)[`contact${ctIdx + 1}Title`] || '' : ''
+    const contactInfo = [contactName, contactTitle].filter(Boolean).join('／')
+    const contactPhoneInfo = [form.contactPhone, form.contactMobile].filter(Boolean).join('／')
+
     const payload = {
       name: form.name?.trim() || form.clientName || '新案件',
       clientId: form.clientId,
-      clientName: form.clientName,
       caseType: form.caseType,
       address: addrParts.join(' '),
       team: form.team,
@@ -137,12 +151,10 @@ function CasesNewInner() {
       leadingType: form.leadingType,
       leadingFee: form.leadingType === '領銜' ? form.leadingFee : null,
       companyShare: form.leadingType === '非領銜' && amt > 0 ? String(Math.round(amt * 0.3)) : null,
-      assignDate: form.assignDate,
       dueDate: form.dueDate,
       progressNote: form.importantNote ? `【重要提醒】${form.importantNote}` : '',
       status: '未開始',
-      documentNotes: leadingNote,
-      // 日期
+      // 日期（assignDate 只寫交辦日期，不寫完成期限）
       assignDate2: form.assignDate,
       siteVisitDate: form.siteVisitDate,
       priceDate: form.priceDate,
@@ -150,18 +162,34 @@ function CasesNewInner() {
       actualDueDate: form.actualDueDate,
       // 繳交資訊
       deliveryInfo: leadingNote,
+      // 承辦窗口
+      contactWindowName: contactInfo || null,
+      contactWindowPhone: contactPhoneInfo || null,
+      // 繳交 checkbox + date + 式份
       zhCount: form.zhCount, zhCountDate: form.zhCountDate,
+      zhCountQC: qc(form.zhCountQty, form.zhCountCopies, form.zhCount),
       zhAbstract: form.zhAbstract, zhAbstractDate: form.zhAbstractDate,
+      zhAbstractQC: qc(form.zhAbstractQty, form.zhAbstractCopies, form.zhAbstract),
       zhReport: form.zhReport, zhReportDate: form.zhReportDate,
+      zhReportQC: qc(form.zhReportQty, form.zhReportCopies, form.zhReport),
       zhPresentation: form.zhPresentation, zhPresentationDate: form.zhPresentationDate,
+      zhPresentationQC: qc('1', '1', form.zhPresentation),
       zhDigital: form.zhDigital, zhDigitalDate: form.zhDigitalDate,
+      zhDigitalQC: qc(form.zhDigitalQty, form.zhDigitalCopies, form.zhDigital),
       zhCD: form.zhCD, zhCDDate: form.zhCDDate,
+      zhCDQC: qc(form.zhCDQty, form.zhCDCopies, form.zhCD),
       zhNoSealAbstract: form.zhNoSealAbstract, zhNoSealAbstractDate: form.zhNoSealAbstractDate,
+      zhNoSealAbstractQC: qc(form.zhNoSealAbstractQty, form.zhNoSealAbstractCopies, form.zhNoSealAbstract),
       enCount: form.enCount, enCountDate: form.enCountDate,
+      enCountQC: qc(form.enCountQty, form.enCountCopies, form.enCount),
       enAbstract: form.enAbstract, enAbstractDate: form.enAbstractDate,
+      enAbstractQC: qc(form.enAbstractQty, form.enAbstractCopies, form.enAbstract),
       enReport: form.enReport, enReportDate: form.enReportDate,
+      enReportQC: qc(form.enReportQty, form.enReportCopies, form.enReport),
       enDigital: form.enDigital, enDigitalDate: form.enDigitalDate,
+      enDigitalQC: qc(form.enDigitalQty, form.enDigitalCopies, form.enDigital),
       enCD: form.enCD, enCDDate: form.enCDDate,
+      enCDQC: qc(form.enCDQty, form.enCDCopies, form.enCD),
     }
     try {
       const res = await fetch('/api/cases', {
@@ -174,72 +202,83 @@ function CasesNewInner() {
         alert('建立失敗：' + (err.error || res.status)); return
       }
 
+      const caseData = await res.json()
+
       // ── 新建案件時自動建立收款分期記錄 ──
-      if (!editId) {
-        try {
-          const caseData = await res.json()
-          const caseId = caseData?.id
-          const caseName = payload.name || '新案件'
+      if (!editId && caseData?.id) {
+        const caseId = caseData.id
+        const caseName = payload.name || '新案件'
+        const paymentItems: any[] = []
 
-          if (caseId) {
-            const paymentItems: any[] = []
+        // 1. 一般服務費用分期
+        servicePeriods.forEach((p, idx) => {
+          const pct = parseFloat(p.pct) || 0
+          if (pct <= 0) return
+          const periodAmt = Math.round(amt * pct / 100)
+          paymentItems.push({
+            title: `${caseName} 第${idx + 1}期`,
+            caseId,
+            period: `第${idx + 1}期`,
+            amount: periodAmt,
+            ratePct: pct,
+            status: '未請款',
+          })
+        })
 
-            // 1. 一般服務費用分期
-            servicePeriods.forEach((p, idx) => {
-              const pct = parseFloat(p.pct) || 0
-              if (pct <= 0) return
-              const periodAmt = Math.round(amt * pct / 100)
-              paymentItems.push({
-                title: `${caseName} 第${idx + 1}期`,
-                caseId,
-                period: `第${idx + 1}期`,
-                amount: periodAmt,
-                ratePct: pct,
-                status: '未請款',
-              })
+        // 2. 領銜案：額外建兩期領銜費（各50%）
+        if (form.leadingType === '領銜' && form.leadingFee) {
+          const lf = parseFloat(form.leadingFee) || 0
+          if (lf > 0) {
+            paymentItems.push({
+              title: `${caseName} 領銜費第1期`,
+              caseId,
+              period: '第1期',
+              amount: Math.round(lf * 0.5),
+              ratePct: 50,
+              status: '未請款',
+              notes: '領銜費',
             })
-
-            // 2. 領銜案：額外建兩期領銜費（各50%）
-            if (form.leadingType === '領銜' && form.leadingFee) {
-              const lf = parseFloat(form.leadingFee) || 0
-              if (lf > 0) {
-                paymentItems.push({
-                  title: `${caseName} 領銜費第1期`,
-                  caseId,
-                  period: '第1期',
-                  amount: Math.round(lf * 0.5),
-                  ratePct: 50,
-                  status: '未請款',
-                  notes: '領銜費',
-                })
-                paymentItems.push({
-                  title: `${caseName} 領銜費第2期`,
-                  caseId,
-                  period: '第2期',
-                  amount: Math.round(lf * 0.5),
-                  ratePct: 50,
-                  status: '未請款',
-                  notes: '領銜費',
-                })
-              }
-            }
-
-            // 批次送出
-            if (paymentItems.length > 0) {
-              await fetch('/api/payments', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(paymentItems),
-              })
-            }
+            paymentItems.push({
+              title: `${caseName} 領銜費第2期`,
+              caseId,
+              period: '第2期',
+              amount: Math.round(lf * 0.5),
+              ratePct: 50,
+              status: '未請款',
+              notes: '領銜費',
+            })
           }
-        } catch (payErr) {
-          console.error('分期款建立失敗（案件已建立）:', payErr)
-          // 案件已成功建立，分期款失敗不 block 流程
         }
-        router.push('/cases')
-      } else {
+
+        // 批次送出分期款
+        if (paymentItems.length > 0) {
+          console.log('[案件建立] 準備建立分期款:', JSON.stringify(paymentItems, null, 2))
+          try {
+            const payRes = await fetch('/api/payments', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(paymentItems),
+            })
+            const payResult = await payRes.json()
+            console.log('[案件建立] 分期款建立結果:', payRes.status, JSON.stringify(payResult))
+            if (!payRes.ok) {
+              console.error('[案件建立] 分期款建立失敗:', payResult)
+            }
+          } catch (payErr) {
+            console.error('[案件建立] 分期款 fetch 失敗:', payErr)
+          }
+        } else {
+          console.log('[案件建立] 無分期款需建立 (paymentItems 為空)')
+        }
+      } else if (!editId) {
+        console.warn('[案件建立] 案件回傳缺少 id，無法建立分期款:', JSON.stringify(caseData))
+      }
+
+      // 導航（所有 async 操作完成後才跳轉）
+      if (editId) {
         router.push('/cases?highlight=' + editId)
+      } else {
+        router.push('/cases')
       }
     } finally { setSaving(false) }
   }
